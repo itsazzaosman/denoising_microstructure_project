@@ -273,7 +273,7 @@ TIMESTEPS = 500
 timestamp = datetime.datetime.now().strftime("%b%d_%H-%M")
 run_name = f"DDPM_ep{NUM_EPOCHS}_bs{BATCH_SIZE}_{timestamp}"
 
-wandb.login(key=os.environ["WANDB_API_KEY"])
+# wandb.login(key=os.environ["WANDB_API_KEY"])
 wandb.init(
     project="microstructure-ddpm", 
     name=run_name,
