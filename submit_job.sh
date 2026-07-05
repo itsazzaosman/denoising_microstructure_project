@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=12:00:00
-#SBATCH --output=/project/community/aiosman/logs/train_%j.out
-#SBATCH --error=/project/community/aiosman/logs/train_%j.err
+#SBATCH --output=/project/community/aiosman/diffusion_project/logs/train_%j.out
+#SBATCH --error=/project/community/aiosman/diffusion_project/logs/train_%j.err
 
 echo "Job started: $(date)"
 echo "Running on node: $(hostname)"
@@ -15,12 +15,18 @@ echo "GPU info:"
 nvidia-smi
 
 # Create logs dir if it doesn't exist
-mkdir -p /project/community/aiosman/logs
+mkdir -p /project/community/aiosman/diffusion_project/logs
 
 
-eval "$(/project/community/aiosman/miniconda3/bin/conda shell.bash hook)"
+# eval "$(/project/community/aiosman/miniconda3/bin/conda shell.bash hook)"
+eval "$(~/miniconda3/bin/conda shell.bash hook)"
+
 conda activate diffusion
 
-python /project/community/aiosman/train_diffusion.py
+python /project/community/aiosman/diffusion_project/train_diffusion.py
+
+echo "Backing up checkpoints and samples to cloud storage..."
+gcloud storage cp -r /project/community/aiosman/diffusion_project/checkpoints gs://cmu-gpucloud-aiosman/
+gcloud storage cp -r /project/community/aiosman/diffusion_project/samples gs://cmu-gpucloud-aiosman/
 
 echo "Job finished: $(date)"
