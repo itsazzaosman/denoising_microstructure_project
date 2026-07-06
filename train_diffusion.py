@@ -1,3 +1,6 @@
+import sys
+# Force Python to prioritize your Conda environment site-packages
+sys.path.insert(0, "/home/aiosman/miniconda3/envs/diffusion/lib/python3.10/site-packages")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +16,8 @@ import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend for cluster
 import matplotlib.pyplot as plt
 import wandb
+
+import torchvision.transforms.functional as TF
 import datetime
 
 # ─── Device ───────────────────────────────────────────────────────────────────
@@ -129,7 +134,7 @@ class Downsample(nn.Module):
 class UNetModel(nn.Module):
     def __init__(self, in_channels=3, model_channels=128, out_channels=3,
                  num_res_blocks=2, attention_resolutions=(8, 16), dropout=0,
-                 channel_mult=(1, 2, 4, 8), conv_resample=True, num_heads=4):
+                 channel_mult=(1, 2, 4, 8), conv_resample=True, num_heads=4, num_classes=5):
         super().__init__()
         self.model_channels = model_channels
         self.attention_resolutions = attention_resolutions
@@ -140,6 +145,8 @@ class UNetModel(nn.Module):
             nn.SiLU(),
             nn.Linear(time_embed_dim, time_embed_dim),
         )
+        #add
+        self.label_emb = nn.Embedding(num_classes, time_embed_dim)
         self.down_blocks = nn.ModuleList([
             TimestepEmbedSequential(nn.Conv2d(in_channels, model_channels, kernel_size=3, padding=1))
         ])
@@ -182,9 +189,11 @@ class UNetModel(nn.Module):
             nn.Conv2d(model_channels, out_channels, kernel_size=3, padding=1),
         )
 
-    def forward(self, x, timesteps):
+    def forward(self, x, timesteps , labels=None):
         hs = []
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
+        if labels is not None:
+            emb = emb + self.label_emb(labels)
         h = x
         for module in self.down_blocks:
             h = module(h, emb)
@@ -230,42 +239,42 @@ class GaussianDiffusion:
                 self._extract(self.posterior_mean_coef2, t, x_t.shape) * x_t)
         return mean, self._extract(self.posterior_variance, t, x_t.shape), self._extract(self.posterior_log_variance_clipped, t, x_t.shape)
 
-    def p_mean_variance(self, model, x_t, t, clip_denoised=True):
-        pred_noise = model(x_t, t)
+    def p_mean_variance(self, model, x_t, t, clip_denoised=True, labels=None):
+        pred_noise = model(x_t, t, labels)
         x_recon = self.predict_start_from_noise(x_t, t, pred_noise)
         if clip_denoised:
             x_recon = torch.clamp(x_recon, -1., 1.)
         return self.q_posterior_mean_variance(x_recon, x_t, t)
 
     @torch.no_grad()
-    def p_sample(self, model, x_t, t, clip_denoised=True):
-        mean, _, log_var = self.p_mean_variance(model, x_t, t, clip_denoised)
+    def p_sample(self, model, x_t, t, clip_denoised=True, labels=None):
+        mean, _, log_var = self.p_mean_variance(model, x_t, t, clip_denoised, labels)
         noise = torch.randn_like(x_t)
         mask = ((t != 0).float().view(-1, *([1] * (len(x_t.shape) - 1))))
         return mean + mask * (0.5 * log_var).exp() * noise
 
     @torch.no_grad()
-    def p_sample_loop(self, model, shape):
+    def p_sample_loop(self, model, shape, labels=None):
         device = next(model.parameters()).device
         img = torch.randn(shape, device=device)
         for i in reversed(range(self.timesteps)):
             t = torch.full((shape[0],), i, device=device, dtype=torch.long)
-            img = self.p_sample(model, img, t)
+            img = self.p_sample(model, img, t, labels=labels)
         return img
 
     @torch.no_grad()
     def sample(self, model, image_size, batch_size=8, channels=3):
         return self.p_sample_loop(model, (batch_size, channels, image_size, image_size))
 
-    def train_losses(self, model, x_start, t):
+    def train_losses(self, model, x_start, t, labels=None):
         noise = torch.randn_like(x_start)
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        return F.mse_loss(model(x_noisy, t), noise)
+        return F.mse_loss(model(x_noisy, t, labels), noise)
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 IMAGE_SIZE = 128
 CHANNELS = 3
-NUM_EPOCHS = 10
+NUM_EPOCHS = 150
 BATCH_SIZE = 32
 LEARNING_RATE = 1e-4
 TIMESTEPS = 500
@@ -299,7 +308,20 @@ sample_dir         = os.path.join(BASE_DIR, "samples")
 os.makedirs(ckpt_dir, exist_ok=True)
 os.makedirs(sample_dir, exist_ok=True)
 
+
+class PadToSquare:
+    def __call__(self, img):
+        # img is a PIL Image
+        w, h = img.size
+        max_dim = max(w, h)
+        pad_left = (max_dim - w) // 2
+        pad_top = (max_dim - h) // 2
+        pad_right = max_dim - w - pad_left
+        pad_bottom = max_dim - h - pad_top
+        return TF.pad(img, (pad_left, pad_top, pad_right, pad_bottom), fill=0)
+
 transform = transforms.Compose([
+    PadToSquare(),
     transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
@@ -344,10 +366,11 @@ def validate_diffusion(model, diffusion, dataloader):
     model.eval()
     total_val_loss = 0.0
     with torch.no_grad():
-        for x, _ in dataloader:
+        for x, y in dataloader:
             x = x.to(device)
+            y = y.to(device)
             t = torch.randint(0, diffusion.timesteps, (x.size(0),), device=device).long()
-            loss = diffusion.train_losses(model, x, t)
+            loss = diffusion.train_losses(model, x, t, labels=y)
             total_val_loss += loss.item()
     model.train()
     return total_val_loss / len(dataloader)
@@ -360,10 +383,11 @@ def train_diffusion(model, diffusion, dataloader, optimizer, num_epochs, start_e
         pbar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
         total_loss = 0.0
 
-        for x, _ in pbar:
+        for x, y in pbar:
             x = x.to(device)
+            y = y.to(device)
             t = torch.randint(0, diffusion.timesteps, (x.size(0),), device=device).long()
-            loss = diffusion.train_losses(model, x, t)
+            loss = diffusion.train_losses(model, x, t, labels=y)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -379,7 +403,7 @@ def train_diffusion(model, diffusion, dataloader, optimizer, num_epochs, start_e
 
 
         # Save checkpoint every 50 epochs
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 50 == 0:
             ckpt_path = os.path.join(ckpt_dir, f"model_epoch_{epoch+1}.pt")
             torch.save({
                 'epoch': epoch + 1,
@@ -389,18 +413,44 @@ def train_diffusion(model, diffusion, dataloader, optimizer, num_epochs, start_e
             }, ckpt_path)
             print(f"Saved checkpoint: {ckpt_path}")
 
-            # Save sample images every 10 epochs
-        if (epoch + 1) % 10 == 0:
+            # Save sample images every 50 epochs
+        if (epoch + 1) % 50 == 0:
             model.eval()
             with torch.no_grad():
-                samples = diffusion.sample(model, image_size=IMAGE_SIZE, batch_size=1, channels=CHANNELS)
-            grid = vutils.make_grid(samples, nrow=1, normalize=True, value_range=(-1, 1))
+                sample_labels = torch.arange(5, device=device)
+                # samples = diffusion.sample(model, image_size=IMAGE_SIZE, batch_size=1, channels=CHANNELS)
+                samples = diffusion.p_sample_loop(
+                    model, 
+                    shape=(5, CHANNELS, IMAGE_SIZE, IMAGE_SIZE), 
+                    labels=sample_labels
+                )
+            grid = vutils.make_grid(samples, nrow=5, normalize=True, value_range=(-1, 1))
 
             wandb.log({"generated_samples": wandb.Image(grid, caption=f"Epoch {epoch+1}")})
-            plt.figure(figsize=(8, 8))
-            plt.imshow(grid.permute(1, 2, 0).cpu().numpy())
-            plt.axis("off")
-            plt.title(f"Epoch {epoch+1}")
+            fig, axes = plt.subplots(1, 5, figsize=(15, 3))
+            fig.suptitle(f"Epoch {epoch+1}", fontsize=16)
+            
+            aspect_ratio_names = [
+                "Aspect Ratio 1", 
+                "Aspect Ratio 2", 
+                "Aspect Ratio 3", 
+                "Aspect Ratio 4", 
+                "Aspect Ratio 5"
+            ]
+            for i in range(5):
+                # Manually normalize the tensor from [-1, 1] to [0, 1] for matplotlib
+                img = (samples[i].permute(1, 2, 0).cpu().numpy() + 1.0) / 2.0
+                img = np.clip(img, 0, 1) 
+                
+                axes[i].imshow(img)
+                axes[i].axis("off")
+                axes[i].set_title(aspect_ratio_names[i], fontsize=12)
+
+            # plt.figure(figsize=(8, 8))
+            # plt.imshow(grid.permute(1, 2, 0).cpu().numpy())
+            # plt.axis("off")
+            # plt.title(f"Epoch {epoch+1}")
+            plt.tight_layout()
             plt.savefig(os.path.join(sample_dir, f"samples_epoch_{epoch+1}.png"), bbox_inches='tight')
             plt.close()
             print(f"Saved samples to {sample_dir}/samples_epoch_{epoch+1}.png")
@@ -408,5 +458,6 @@ def train_diffusion(model, diffusion, dataloader, optimizer, num_epochs, start_e
 
     wandb.finish()
 
-train_diffusion(model, gaussian_diffusion, train_loader, optimizer, NUM_EPOCHS, start_epoch)
-print("Training complete!")
+if __name__ == "__main__":
+    train_diffusion(model, gaussian_diffusion, train_loader, optimizer, NUM_EPOCHS, start_epoch)
+    print("Training complete!")
