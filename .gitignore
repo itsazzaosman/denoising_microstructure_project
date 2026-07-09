@@ -1,4 +1,6 @@
-/dataset_split
-/checkpoints
-/logs
-/wandb
+dataset_split
+dataset_low_density
+checkpoints
+logs
+wandb
+
