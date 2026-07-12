@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=03:00:00
+#SBATCH --time=10:00:00
 #SBATCH --output=/project/community/aiosman/diffusion_project/logs/train_%j.out
 #SBATCH --error=/project/community/aiosman/diffusion_project/logs/train_%j.err
 
@@ -34,7 +34,9 @@ export WANDB_API_KEY="wandb_v1_2gDjbXDi5WMxO1Gxjw92RSj9kZy_SO3CTlmrJ3AdGQUNkawP0
 
 
 echo "Backing up checkpoints and samples to cloud storage..."
-gcloud storage cp -r /project/community/aiosman/diffusion_project/checkpoints gs://cmu-gpucloud-aiosman/
-gcloud storage cp -r /project/community/aiosman/diffusion_project/samples gs://cmu-gpucloud-aiosman/
+# gcloud storage cp -r /project/community/aiosman/diffusion_project/checkpoints gs://cmu-gpucloud-aiosman/
+gcloud storage cp -r /project/community/aiosman/diffusion_project/checkpoints_low_density gs://cmu-gpucloud-aiosman
+# gcloud storage cp -r /project/community/aiosman/diffusion_project/samples gs://cmu-gpucloud-aiosman/
+gcloud storage cp -r /project/community/aiosman/diffusion_project/samples_low_density gs://cmu-gpucloud-aiosman/
 
 echo "Job finished: $(date)"

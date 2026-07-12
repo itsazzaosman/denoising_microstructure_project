@@ -19,6 +19,7 @@ import wandb
 
 import torchvision.transforms.functional as TF
 import datetime
+import copy
 
 # ─── Device ───────────────────────────────────────────────────────────────────
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -38,7 +39,7 @@ def cosine_beta_schedule(timesteps, s=0.008):
     betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
     return betas.clamp(0.0001, 0.9999).float()
 
-# ─── Timestep Embedding ───────────────────────────────────────────────────────
+
 def timestep_embedding(timesteps, dim, max_period=10000):
     half = dim // 2
     freqs = torch.exp(
@@ -301,10 +302,16 @@ BASE_DIR = "/project/community/aiosman/diffusion_project"
 
 
 # BASE_DIR           = "/mnt/microstructures-vol"
-train_dataset_path = os.path.join(BASE_DIR, "dataset_split/train")
-test_dataset_path  = os.path.join(BASE_DIR, "dataset_split/test")
-ckpt_dir           = os.path.join(BASE_DIR, "checkpoints")
-sample_dir         = os.path.join(BASE_DIR, "samples")
+# train_dataset_path = os.path.join(BASE_DIR, "dataset_split/train")
+train_dataset_path = os.path.join(BASE_DIR, "dataset_low_density/train")
+# test_dataset_path  = os.path.join(BASE_DIR, "dataset_split/test")
+test_dataset_path = os.path.join(BASE_DIR, "dataset_low_density/test")
+# ckpt_dir           = os.path.join(BASE_DIR, "checkpoints")
+ckpt_dir           = os.path.join(BASE_DIR, "checkpoints_low_density")
+
+# sample_dir         = os.path.join(BASE_DIR, "samples/low_density")
+sample_dir         = os.path.join(BASE_DIR, "samples_low_density")
+
 os.makedirs(ckpt_dir, exist_ok=True)
 os.makedirs(sample_dir, exist_ok=True)
 
@@ -320,16 +327,25 @@ class PadToSquare:
         pad_bottom = max_dim - h - pad_top
         return TF.pad(img, (pad_left, pad_top, pad_right, pad_bottom), fill=0)
 
-transform = transforms.Compose([
+train_transform = transforms.Compose([
+    PadToSquare(),
+    transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomVerticalFlip(p=0.5),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+])
+
+val_transform = transforms.Compose([
     PadToSquare(),
     transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 
-dataset     = datasets.ImageFolder(train_dataset_path, transform=transform)
+dataset     = datasets.ImageFolder(train_dataset_path, transform=train_transform)
 train_loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2, pin_memory=True)
-val_dataset = datasets.ImageFolder(test_dataset_path, transform=transform)
+val_dataset = datasets.ImageFolder(test_dataset_path, transform=val_transform)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, 
                         num_workers=2, pin_memory=True)
 
@@ -362,6 +378,25 @@ start_epoch = 0
 #     print(f"Resumed from epoch {start_epoch}")
 
 # ─── Training ─────────────────────────────────────────────────────────────────
+
+
+
+
+class EMA:
+    def __init__(self, model, decay=0.999):
+        self.decay = decay
+        # Create a deep copy of the model for EMA
+        self.ema_model = copy.deepcopy(model).to(device)
+        self.ema_model.eval()
+
+    @torch.no_grad()
+    def step(self, model):
+        # Smoothly average the weights
+        for ema_param, param in zip(self.ema_model.parameters(), model.parameters()):
+            ema_param.data.copy_(ema_param.data * self.decay + param.data * (1.0 - self.decay))
+
+
+
 def validate_diffusion(model, diffusion, dataloader):
     model.eval()
     total_val_loss = 0.0
@@ -377,6 +412,9 @@ def validate_diffusion(model, diffusion, dataloader):
 def train_diffusion(model, diffusion, dataloader, optimizer, num_epochs, start_epoch=0):
     os.makedirs(ckpt_dir, exist_ok=True)
     os.makedirs(sample_dir, exist_ok=True)
+
+    ema = EMA(model, decay=0.999)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=1e-6)
     model.train()
 
     for epoch in range(start_epoch, num_epochs):
@@ -391,10 +429,13 @@ def train_diffusion(model, diffusion, dataloader, optimizer, num_epochs, start_e
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            ema.step(model)
             total_loss += loss.item()
             pbar.set_postfix(loss=f"{loss.item():.4f}")
             wandb.log({"batch_loss": loss.item()})
 
+        scheduler.step()
+        current_lr = scheduler.get_last_lr()[0]
         avg_loss = total_loss / len(dataloader)
         val_loss = validate_diffusion(model, gaussian_diffusion, val_loader)
         print(f"Epoch {epoch+1}/{num_epochs} | Avg Loss: {avg_loss:.4f} | Val Loss: {val_loss:.4f}")
@@ -420,7 +461,7 @@ def train_diffusion(model, diffusion, dataloader, optimizer, num_epochs, start_e
                 sample_labels = torch.arange(5, device=device)
                 # samples = diffusion.sample(model, image_size=IMAGE_SIZE, batch_size=1, channels=CHANNELS)
                 samples = diffusion.p_sample_loop(
-                    model, 
+                    ema.ema_model,
                     shape=(5, CHANNELS, IMAGE_SIZE, IMAGE_SIZE), 
                     labels=sample_labels
                 )
