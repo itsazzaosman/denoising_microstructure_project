@@ -5,5 +5,4 @@ checkpoints_low_density
 logs
 wandb
 **/*.pyc
-
 __pycache__/train_diffusion.cpython-310.pyc
