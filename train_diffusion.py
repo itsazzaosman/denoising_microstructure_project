@@ -298,7 +298,7 @@ wandb.init(
     }
 )
 
-BASE_DIR = "/project/community/aiosman/diffusion_project"
+BASE_DIR = "/project/community/aiosman"
 
 
 # BASE_DIR           = "/mnt/microstructures-vol"
