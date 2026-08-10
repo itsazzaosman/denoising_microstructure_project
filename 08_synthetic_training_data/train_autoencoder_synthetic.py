@@ -17,6 +17,7 @@ Edit the SETTINGS block below, then:
 """
 
 import json
+import os
 import numpy as np
 import h5py
 import matplotlib
@@ -31,8 +32,11 @@ from tensorflow.keras.models import Model
 # ======================================================================
 # SETTINGS
 # ======================================================================
-OUT_DIR   = "/home/azza_osman/EMsoftData_work/08_synthetic_training_data"
-DATA_FILE = "/home/azza_osman/EMsoftData_work/08_synthetic_training_data/training_pairs_30k.h5"
+# Resolved from the script's own location, so this file runs unchanged
+# whether it's at ~/EMsoftData_work/08_synthetic_training_data (local) or
+# wherever it lands after being copied to the cluster.
+OUT_DIR   = os.path.dirname(os.path.abspath(__file__))
+DATA_FILE = f"{OUT_DIR}/training_pairs_30k.h5"
 MODEL_OUT = f"{OUT_DIR}/denoiser_30.keras"
 
 EPOCHS     = 100                    # paper: 10
