@@ -1,0 +1,12 @@
+{
+  "model_file": "/home/azza_osman/EMsoftData_work/08_synthetic_training_data/denoiser_30.keras",
+  "holdout_file": "/home/azza_osman/EMsoftData_work/05_noising_training_data/training_pairs.h5",
+  "n_patterns": 4125,
+  "psnr_noisy_db": 16.006772994995117,
+  "psnr_denoised_db": 19.72087287902832,
+  "psnr_gain_db": 3.714099884033203,
+  "ncc_noisy": 0.7849140763282776,
+  "ncc_denoised": 0.8325766921043396,
+  "ncc_gain": 0.04766261577606201,
+  "generalised": true
+}

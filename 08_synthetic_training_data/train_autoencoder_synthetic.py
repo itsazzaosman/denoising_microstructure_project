@@ -39,7 +39,7 @@ OUT_DIR   = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = f"{OUT_DIR}/training_pairs_30k.h5"
 MODEL_OUT = f"{OUT_DIR}/denoiser_30.keras"
 
-EPOCHS     = 100                    # paper: 10
+EPOCHS     = 10                  # paper: 10
 BATCH_SIZE = 64                     # paper: 64
                                     # optimizer adam and MSE loss are also
                                     # from the paper, set further down
