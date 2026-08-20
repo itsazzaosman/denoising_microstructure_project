@@ -1,6 +1,4 @@
 BUCKET := gs://cmu-gpucloud-aiosman
-PROJECT_DIR := diffusion_project
-BACKUP := diffusion_backup.tar.gz
 
 .PHONY: auth ls upload download backup
 
