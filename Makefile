@@ -11,9 +11,9 @@ ls:
 	gcloud storage ls $(BUCKET)/
 
 upload:
-	gcloud storage rsync -r ./ $(BUCKET)/
+	gcloud storage rsync -r ./training $(BUCKET)/training
 
 download:
-	gcloud storage rsync -r $(BUCKET)/ ./download
+	gcloud storage rsync -r $(BUCKET)/training ./training
 
 
