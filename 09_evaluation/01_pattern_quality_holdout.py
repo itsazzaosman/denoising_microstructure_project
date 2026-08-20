@@ -10,12 +10,17 @@ touched: the 4,125 patterns simulated at the real scan's orientations
 different angle file, a different noise draw.
 
 Answers: did the model generalise to orientations it never trained on, or
-did it just memorise the 30k synthetic set?
+did it just memorise the 30k synthetic set? Pass --tag/--holdout-file to
+run this same check against a different noise level (e.g. a harsher one
+than the model trained on) without overwriting the original results.
 
 Run:
     ~/.dl/bin/python 01_pattern_quality_holdout.py
+    ~/.dl/bin/python 01_pattern_quality_holdout.py --tag harsh \\
+        --holdout-file ../05_noising_training_data/training_pairs_harsh.h5
 """
 
+import argparse
 import json
 import os
 
@@ -31,10 +36,22 @@ import tensorflow as tf
 # ======================================================================
 # Paths are relative to this file's position in the repo, so this script
 # runs unchanged wherever the repo lives (local machine, cluster, ...).
-OUT_DIR      = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT    = os.path.dirname(OUT_DIR)
-MODEL_FILE   = os.path.join(REPO_ROOT, "08_synthetic_training_data", "denoiser_30.keras")
-HOLDOUT_FILE = os.path.join(REPO_ROOT, "05_noising_training_data", "training_pairs.h5")
+OUT_DIR   = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(OUT_DIR)
+
+cli = argparse.ArgumentParser()
+cli.add_argument("--model-file", default=os.path.join(
+    REPO_ROOT, "08_synthetic_training_data", "denoiser_30.keras"))
+cli.add_argument("--holdout-file", default=os.path.join(
+    REPO_ROOT, "05_noising_training_data", "training_pairs.h5"))
+cli.add_argument("--tag", default="",
+                  help="suffix for output filenames, e.g. 'harsh' -> stage1_..._harsh.*; "
+                       "empty (default) reproduces the original, unsuffixed filenames")
+args = cli.parse_args()
+
+MODEL_FILE   = args.model_file
+HOLDOUT_FILE = args.holdout_file
+SUFFIX       = f"_{args.tag}" if args.tag else ""
 
 BATCH_SIZE  = 64
 EXAMPLE_IDX = 0     # which holdout pattern to show in the figure
@@ -141,18 +158,20 @@ results = {
     "ncc_gain": ncc_gain,
     "generalised": generalised,
 }
-with open(f"{OUT_DIR}/stage1_pattern_quality_holdout.json", "w") as f:
+results_path = f"{OUT_DIR}/stage1_pattern_quality_holdout{SUFFIX}.json"
+with open(results_path, "w") as f:
     json.dump(results, f, indent=2)
-print("saved stage1_pattern_quality_holdout.json")
+print(f"saved {os.path.basename(results_path)}")
 
 # Persist the three full pattern sets so Stage 2 (indexing accuracy) can
 # Hough-index them without needing TensorFlow -- that script runs in the
 # separate .ebsd environment (pyebsdindex/kikuchipy/orix only).
-with h5py.File(f"{OUT_DIR}/stage1_denoised_patterns.h5", "w") as f:
+patterns_path = f"{OUT_DIR}/stage1_denoised_patterns{SUFFIX}.h5"
+with h5py.File(patterns_path, "w") as f:
     f.create_dataset("noisy", data=noisy_in, compression="gzip")
     f.create_dataset("denoised", data=denoised, compression="gzip")
     f.create_dataset("clean", data=target, compression="gzip")
-print("saved stage1_denoised_patterns.h5")
+print(f"saved {os.path.basename(patterns_path)}")
 
 
 # ----------------------------------------------------------------------
@@ -167,9 +186,11 @@ ax[2].imshow(target[EXAMPLE_IDX], cmap="gray", vmin=0, vmax=1)
 ax[2].set_title("clean target", fontsize=10)
 for a in ax:
     a.axis("off")
-fig.suptitle(f"Holdout pattern {EXAMPLE_IDX} -- real-derived orientation, unseen in training",
+fig.suptitle(f"Holdout pattern {EXAMPLE_IDX} -- real-derived orientation, unseen in training"
+             + (f" [{args.tag}]" if args.tag else ""),
              fontsize=10)
 plt.tight_layout()
-plt.savefig(f"{OUT_DIR}/stage1_holdout_example.png", dpi=150, bbox_inches="tight")
+example_path = f"{OUT_DIR}/stage1_holdout_example{SUFFIX}.png"
+plt.savefig(example_path, dpi=150, bbox_inches="tight")
 plt.close(fig)
-print("saved stage1_holdout_example.png")
+print(f"saved {os.path.basename(example_path)}")

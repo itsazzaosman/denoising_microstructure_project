@@ -16,12 +16,14 @@ Stage 1's saved pattern arrays instead of loading the Keras model itself.
 
 Run:
     ~/.ebsd/bin/python 02_indexing_accuracy.py
+    ~/.ebsd/bin/python 02_indexing_accuracy.py --tag harsh
 
 Answers: does denoising improve indexing, and by how much? Success looks
 like the "result" (denoised) map sitting between "baseline" (noisy) and
 "upper bound" (clean).
 """
 
+import argparse
 import json
 import os
 
@@ -41,9 +43,19 @@ from orix.vector import Vector3d
 # ======================================================================
 # SETTINGS
 # ======================================================================
-OUT_DIR      = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT    = os.path.dirname(OUT_DIR)
-PATTERNS_FILE = f"{OUT_DIR}/stage1_denoised_patterns.h5"      # noisy/denoised/clean, from Stage 1
+OUT_DIR   = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(OUT_DIR)
+
+cli = argparse.ArgumentParser()
+cli.add_argument("--tag", default="",
+                  help="must match the --tag used in 01_pattern_quality_holdout.py, "
+                       "e.g. 'harsh' -> reads stage1_denoised_patterns_harsh.h5 and "
+                       "writes stage2_..._harsh.*; empty (default) reproduces the "
+                       "original, unsuffixed filenames")
+args = cli.parse_args()
+SUFFIX = f"_{args.tag}" if args.tag else ""
+
+PATTERNS_FILE = f"{OUT_DIR}/stage1_denoised_patterns{SUFFIX}.h5"   # noisy/denoised/clean, from Stage 1
 ANGLES_FILE   = os.path.join(REPO_ROOT, "03_ebsd_pattern_simulation", "ni_angles.txt")
 
 SCAN_SHAPE = (55, 75)     # (ny, nx) -- must match the order patterns/angles were written in
@@ -159,17 +171,27 @@ print(f"  {gt_orientation.size} ground-truth orientations, symmetry {gt_orientat
 #        own fit and confidence index (CI)
 # ----------------------------------------------------------------------
 report = {}
-disorientation_maps = {}   # label -> (N,) degrees, kept for the figures below
+disorientation_maps = {}   # label -> (N,) degrees, NaN where Hough failed to index at all
 for label, xmap in xmaps.items():
-    orientations = xmap.orientations       # Orientation, symmetry already m-3m from the phase
-    disorientation = gt_orientation.angle_with(orientations, degrees=True)
-    disorientation = np.asarray(disorientation).ravel()
+    # At harsh noise levels, Hough indexing can fail outright on some points --
+    # those get phase "not_indexed" and xmap.orientations (single-phase only)
+    # would raise. Score them as NaN: correctly excluded by nanmedian/nanmean
+    # below, and correctly counted as misses by the "< 1 deg"/"< 2 deg" and CDF
+    # comparisons, since NaN comparisons are always False in numpy.
+    indexed_mask = xmap.is_indexed
+    fraction_indexed = float(indexed_mask.mean())
+
+    disorientation = np.full(n_patterns, np.nan)
+    if indexed_mask.any():
+        disorientation[indexed_mask] = gt_orientation[indexed_mask].angle_with(
+            xmap[indexed_mask].orientations, degrees=True)
     disorientation_maps[label] = disorientation
 
-    fit = np.asarray(xmap.prop["fit"]).ravel()
-    cm  = np.asarray(xmap.prop["cm"]).ravel()
+    fit = np.where(indexed_mask, np.asarray(xmap.prop["fit"]).ravel(), np.nan)
+    cm  = np.where(indexed_mask, np.asarray(xmap.prop["cm"]).ravel(), np.nan)
 
     stats = {
+        "fraction_indexed":          fraction_indexed,
         "median_disorientation_deg": float(np.nanmedian(disorientation)),
         "mean_disorientation_deg":   float(np.nanmean(disorientation)),
         "fraction_under_1deg":       float(np.mean(disorientation < 1.0)),
@@ -179,10 +201,12 @@ for label, xmap in xmaps.items():
     }
     report[label] = stats
     print(f"\n{label}:")
-    print(f"  median disorientation : {stats['median_disorientation_deg']:.3f} deg")
-    print(f"  mean disorientation   : {stats['mean_disorientation_deg']:.3f} deg")
-    print(f"  fraction < 1 deg      : {stats['fraction_under_1deg']:.3f}")
-    print(f"  fraction < 2 deg      : {stats['fraction_under_2deg']:.3f}")
+    print(f"  fraction indexed      : {stats['fraction_indexed']:.3f}"
+          + ("" if fraction_indexed == 1.0 else "  <-- some points failed to index at all"))
+    print(f"  median disorientation : {stats['median_disorientation_deg']:.3f} deg (among indexed points)")
+    print(f"  mean disorientation   : {stats['mean_disorientation_deg']:.3f} deg (among indexed points)")
+    print(f"  fraction < 1 deg      : {stats['fraction_under_1deg']:.3f}  (of all points; not-indexed counts as a miss)")
+    print(f"  fraction < 2 deg      : {stats['fraction_under_2deg']:.3f}  (of all points; not-indexed counts as a miss)")
     print(f"  Hough fit (mean)      : {stats['hough_fit_mean']:.3f}")
     print(f"  Hough CI (mean)       : {stats['hough_cm_mean']:.3f}")
 
@@ -192,20 +216,30 @@ upper_med    = report["upper bound (clean)"]["median_disorientation_deg"]
 improved = result_med < baseline_med
 between  = upper_med <= result_med <= baseline_med
 
+baseline_frac = report["baseline (noisy)"]["fraction_indexed"]
+result_frac   = report["result (denoised)"]["fraction_indexed"]
+upper_frac    = report["upper bound (clean)"]["fraction_indexed"]
+indexed_more  = result_frac > baseline_frac
+
 print(f"\nDoes denoising improve indexing? "
       f"{'YES' if improved else 'NO'} "
       f"(median disorientation {baseline_med:.3f} deg -> {result_med:.3f} deg, "
       f"upper bound {upper_med:.3f} deg)")
 print(f"Result sits between baseline and upper bound? {'YES' if between else 'NO'}")
+print(f"Fraction indexed at all: baseline {baseline_frac:.3f} -> "
+      f"denoised {result_frac:.3f}  (upper bound {upper_frac:.3f})"
+      + ("  <-- denoising rescues points that failed to index outright" if indexed_more else ""))
 
 report["summary"] = {
     "improved": improved,
     "result_between_baseline_and_upper_bound": between,
     "median_disorientation_gain_deg": baseline_med - result_med,
+    "fraction_indexed_gain": result_frac - baseline_frac,
 }
-with open(f"{OUT_DIR}/stage2_indexing_accuracy.json", "w") as f:
+report_path = f"{OUT_DIR}/stage2_indexing_accuracy{SUFFIX}.json"
+with open(report_path, "w") as f:
     json.dump(report, f, indent=2)
-print("saved stage2_indexing_accuracy.json")
+print(f"saved {os.path.basename(report_path)}")
 
 
 # ----------------------------------------------------------------------
@@ -213,21 +247,28 @@ print("saved stage2_indexing_accuracy.json")
 # ----------------------------------------------------------------------
 ipf_key = IPFColorKeyTSL(Oh, direction=Vector3d.zvector())
 
-panels = [("ground truth", gt_orientation)] + [
-    (label, xmap.orientations) for label, xmap in xmaps.items()
-]
+# Not-indexed points have no orientation to color -- shown black, same
+# convention as MTEX/OIM/DREAM.3D use for "no solution".
+rgb_panels = [("ground truth", ipf_key.orientation2color(gt_orientation).reshape(ny, nx, 3))]
+for label, xmap in xmaps.items():
+    indexed_mask = xmap.is_indexed
+    rgb_flat = np.zeros((n_patterns, 3))
+    if indexed_mask.any():
+        rgb_flat[indexed_mask] = ipf_key.orientation2color(xmap[indexed_mask].orientations)
+    rgb_panels.append((label, rgb_flat.reshape(ny, nx, 3)))
 
-fig, ax = plt.subplots(1, len(panels), figsize=(4 * len(panels), 4.4))
-for a, (label, orientation) in zip(ax, panels):
-    rgb = ipf_key.orientation2color(orientation).reshape(ny, nx, 3)
+fig, ax = plt.subplots(1, len(rgb_panels), figsize=(4 * len(rgb_panels), 4.4))
+for a, (label, rgb) in zip(ax, rgb_panels):
     a.imshow(np.clip(rgb, 0, 1))
     a.set_title(label, fontsize=11)
     a.axis("off")
-fig.suptitle("IPF-Z maps: ground truth vs. Hough-indexed noisy / denoised / clean", fontsize=12)
+fig.suptitle("IPF-Z maps: ground truth vs. Hough-indexed noisy / denoised / clean"
+             + (f" [{args.tag}]" if args.tag else ""), fontsize=12)
 plt.tight_layout()
-plt.savefig(f"{OUT_DIR}/stage2_ipf_maps.png", dpi=150, bbox_inches="tight")
+ipf_path = f"{OUT_DIR}/stage2_ipf_maps{SUFFIX}.png"
+plt.savefig(ipf_path, dpi=150, bbox_inches="tight")
 plt.close(fig)
-print("saved stage2_ipf_maps.png")
+print(f"saved {os.path.basename(ipf_path)}")
 
 
 # ----------------------------------------------------------------------
@@ -238,21 +279,35 @@ print("saved stage2_ipf_maps.png")
 #     degree, far below what IPF coloring can show; a magnitude scale
 #     zoomed into that same fraction-of-a-degree range can.
 # ----------------------------------------------------------------------
-vmax = max(d.max() for d in disorientation_maps.values())
+vmax = max(np.nanmax(d) for d in disorientation_maps.values())
 print(f"\nShared disorientation color scale: 0 to {vmax:.2f} deg")
 
-fig, ax = plt.subplots(1, len(disorientation_maps), figsize=(4.6 * len(disorientation_maps), 4.4))
+# Black = failed to index at all, not "zero disorientation" -- distinct from
+# the viridis scale itself so a bad point can never be mistaken for a good one.
+cmap = plt.get_cmap("viridis").copy()
+cmap.set_bad(color="black")
+
+any_failures = any(report[label]["fraction_indexed"] < 1.0 for label in disorientation_maps)
+
+fig, ax = plt.subplots(1, len(disorientation_maps), figsize=(4.6 * len(disorientation_maps), 4.6),
+                        constrained_layout=True)
 im = None
 for a, (label, disorientation) in zip(ax, disorientation_maps.items()):
-    im = a.imshow(disorientation.reshape(ny, nx), cmap="viridis", vmin=0, vmax=vmax)
-    a.set_title(f"{label}\nmedian {np.median(disorientation):.3f}°", fontsize=11)
+    im = a.imshow(disorientation.reshape(ny, nx), cmap=cmap, vmin=0, vmax=vmax)
+    title_lines = [label, f"median {np.nanmedian(disorientation):.3f}°"]
+    a.set_title("\n".join(title_lines), fontsize=10.5, linespacing=1.5)
     a.axis("off")
 cbar = fig.colorbar(im, ax=ax, shrink=0.8, pad=0.02)
 cbar.set_label("disorientation from truth (deg)")
-fig.suptitle("Per-point indexing error, same color scale across all three", fontsize=12)
-plt.savefig(f"{OUT_DIR}/stage2_disorientation_heatmaps.png", dpi=150, bbox_inches="tight")
+subtitle = "black = failed to index" if any_failures else None
+suptitle_text = "Per-point indexing error, same color scale across all three"
+if args.tag:
+    suptitle_text += f" [{args.tag}]"
+fig.suptitle(suptitle_text + (f"\n({subtitle})" if subtitle else ""), fontsize=12)
+heatmap_path = f"{OUT_DIR}/stage2_disorientation_heatmaps{SUFFIX}.png"
+plt.savefig(heatmap_path, dpi=150)
 plt.close(fig)
-print("saved stage2_disorientation_heatmaps.png")
+print(f"saved {os.path.basename(heatmap_path)}")
 
 
 # ----------------------------------------------------------------------
@@ -284,14 +339,15 @@ a.set_xlim(0, x_max)
 a.set_ylim(0, 1.02)
 a.set_xlabel("disorientation from truth (degrees)")
 a.set_ylabel("fraction of points at or below")
-a.set_title("Indexing accuracy vs. disorientation threshold")
+a.set_title("Indexing accuracy vs. disorientation threshold" + (f" [{args.tag}]" if args.tag else ""))
 a.legend(loc="lower right", frameon=False)
 a.spines["top"].set_visible(False)
 a.spines["right"].set_visible(False)
 plt.tight_layout()
-plt.savefig(f"{OUT_DIR}/stage2_disorientation_cdf.png", dpi=150, bbox_inches="tight")
+cdf_path = f"{OUT_DIR}/stage2_disorientation_cdf{SUFFIX}.png"
+plt.savefig(cdf_path, dpi=150, bbox_inches="tight")
 plt.close(fig)
-print("saved stage2_disorientation_cdf.png")
+print(f"saved {os.path.basename(cdf_path)}")
 
 
 # ----------------------------------------------------------------------
@@ -300,8 +356,9 @@ print("saved stage2_disorientation_cdf.png")
 # ----------------------------------------------------------------------
 npz_keys = {label: label.replace(" ", "_").replace("(", "").replace(")", "")
             for label in disorientation_maps}
+npz_path = f"{OUT_DIR}/stage2_disorientation_maps{SUFFIX}.npz"
 np.savez(
-    f"{OUT_DIR}/stage2_disorientation_maps.npz",
+    npz_path,
     **{npz_keys[label]: arr for label, arr in disorientation_maps.items()},
 )
-print("saved stage2_disorientation_maps.npz")
+print(f"saved {os.path.basename(npz_path)}")
