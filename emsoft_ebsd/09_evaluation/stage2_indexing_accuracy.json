@@ -1,0 +1,31 @@
+{
+  "baseline (noisy)": {
+    "median_disorientation_deg": 0.5174386094683914,
+    "mean_disorientation_deg": 0.5377763084664305,
+    "fraction_under_1deg": 0.9888484848484849,
+    "fraction_under_2deg": 1.0,
+    "hough_fit_mean": 0.534903883934021,
+    "hough_cm_mean": 0.7175005674362183
+  },
+  "result (denoised)": {
+    "median_disorientation_deg": 0.4942592276754766,
+    "mean_disorientation_deg": 0.5022234477555836,
+    "fraction_under_1deg": 0.9997575757575757,
+    "fraction_under_2deg": 1.0,
+    "hough_fit_mean": 0.3493308126926422,
+    "hough_cm_mean": 0.7335489392280579
+  },
+  "upper bound (clean)": {
+    "median_disorientation_deg": 0.4883082493164409,
+    "mean_disorientation_deg": 0.5208565240482246,
+    "fraction_under_1deg": 0.991030303030303,
+    "fraction_under_2deg": 1.0,
+    "hough_fit_mean": 0.46013689041137695,
+    "hough_cm_mean": 0.7333561778068542
+  },
+  "summary": {
+    "improved": true,
+    "result_between_baseline_and_upper_bound": true,
+    "median_disorientation_gain_deg": 0.02317938179291479
+  }
+}

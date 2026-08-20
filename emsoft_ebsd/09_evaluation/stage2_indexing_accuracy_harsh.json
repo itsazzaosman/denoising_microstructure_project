@@ -1,0 +1,35 @@
+{
+  "baseline (noisy)": {
+    "fraction_indexed": 0.9980606060606061,
+    "median_disorientation_deg": 0.5796505414938051,
+    "mean_disorientation_deg": 1.3744093132343729,
+    "fraction_under_1deg": 0.9486060606060606,
+    "fraction_under_2deg": 0.9803636363636363,
+    "hough_fit_mean": 0.6684823632240295,
+    "hough_cm_mean": 0.5466565489768982
+  },
+  "result (denoised)": {
+    "fraction_indexed": 0.9997575757575757,
+    "median_disorientation_deg": 0.5584571023497705,
+    "mean_disorientation_deg": 0.6586706702711432,
+    "fraction_under_1deg": 0.9791515151515151,
+    "fraction_under_2deg": 0.9978181818181818,
+    "hough_fit_mean": 0.6300889253616333,
+    "hough_cm_mean": 0.6308807134628296
+  },
+  "upper bound (clean)": {
+    "fraction_indexed": 1.0,
+    "median_disorientation_deg": 0.4883082493164409,
+    "mean_disorientation_deg": 0.5208565240482174,
+    "fraction_under_1deg": 0.991030303030303,
+    "fraction_under_2deg": 1.0,
+    "hough_fit_mean": 0.46013689041137695,
+    "hough_cm_mean": 0.7333561778068542
+  },
+  "summary": {
+    "improved": true,
+    "result_between_baseline_and_upper_bound": true,
+    "median_disorientation_gain_deg": 0.021193439144034598,
+    "fraction_indexed_gain": 0.0016969696969696413
+  }
+}
