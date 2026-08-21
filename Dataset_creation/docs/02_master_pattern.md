@@ -15,8 +15,8 @@ every later simulated pattern is just a re-projection of.
 Electrons that backscatter out of the crystal near a lattice plane
 diffract, producing bands of enhanced/reduced intensity (Kikuchi bands)
 whose positions depend only on the crystal's geometry — not on where a
-detector happens to sit. The master pattern is this diffraction intensity
-computed over the *entire* projection sphere around the crystal at once,
+detector happens to sit. **The master pattern is this diffraction intensity
+computed over the entire projection sphere around the crystal at once**,
 using the Monte Carlo energy/angle statistics as the electron source term
 and full dynamical (multi-beam) diffraction theory to compute how those
 electrons interfere.
