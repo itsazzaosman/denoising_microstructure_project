@@ -39,6 +39,12 @@ mkdir -p "$PROJECT_DIR/logs"
 
 export PATH="$EMSOFT_BIN:$PATH"
 
+# Fix for "Unknown CL error code : -1001" (CL_PLATFORM_NOT_FOUND_KHR):
+# conda-forge's ocl-icd loader hardcodes its vendor-ICD search path to
+# $CONDA_PREFIX/etc/OpenCL/vendors (empty here), never looking at this
+# node's real /etc/OpenCL/vendors/nvidia.icd unless told to.
+export OCL_ICD_VENDORS=/etc/OpenCL/vendors
+
 if [[ -z "$(ls -A "$HOME/.config/EMsoft" 2>/dev/null)" ]]; then
     echo "ERROR: EMsoft has not been configured yet (nothing in $HOME/.config/EMsoft)." >&2
     echo "        Run 'EMsoftinit' interactively once before submitting this job -" >&2
