@@ -9,6 +9,8 @@
 #SBATCH --output=/project/community/aiosman/logs/mc_%j.out
 #SBATCH --error=/project/community/aiosman/logs/mc_%j.err
 
+
+
 # Runs EMsoft's Monte Carlo backscatter simulation (EMMCOpenCL) on
 # 01_monte_carlo/MCNi.nml to produce Ni_MC.h5.
 #
@@ -47,3 +49,7 @@ fi
 EMMCOpenCL "$NML"
 
 echo "Job finished: $(date)"
+
+# squeue -j 136063
+# cat /project/community/aiosman/logs/mc_136063.out
+# cat /project/community/aiosman/logs/mc_136063.err
