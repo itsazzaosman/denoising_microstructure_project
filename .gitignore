@@ -1,3 +1,4 @@
 *.h5
 training/*
 emsoft_install/*
+logs/*
