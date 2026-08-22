@@ -77,6 +77,20 @@ later in your pipeline.
 `EMEBSDmaster.template` is a blank, generic reference copy — not read by
 anything.
 
+## Running it
+
+CPU/OpenMP only — no GPU needed (`EMEBSDmaster` has no `platid`/`devid`,
+just `nthreads`). Only the hi-res run matters in practice:
+
+```bash
+sbatch submit_master.sh
+```
+
+Takes noticeably longer than the Monte Carlo step — full dynamical
+diffraction over a much finer sphere, on CPU rather than GPU. Run it as a
+SLURM job (`--cpus-per-task=16`, no `--gres=gpu`) rather than on the login
+node if it takes more than a couple of minutes.
+
 ## Visual check
 
 `view_master.py` opens `Ni_master_hires.h5`, plots it, and saves

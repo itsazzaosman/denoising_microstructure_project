@@ -36,10 +36,22 @@ a blank, generic reference copy, not read by anything):
 | `Ehistmin` | 10.0 | Minimum energy tracked in the exit-energy histogram |
 | `totnum_el` | 1×10⁸ | Total incident electrons simulated |
 
-Run with `EMMCOpenCL MCNi.nml`. Output field `dataname` points to
-`01_monte_carlo/Ni_MC.h5` (a path relative to `EMdatapathname`, the repo
-root — see the [crystal structure doc](00_crystal_structure.md) for why this
-one *does* need the folder prefix while `xtalname` doesn't).
+Output field `dataname` points to `01_monte_carlo/Ni_MC.h5` (a path relative
+to `EMdatapathname`, the repo root — see the
+[crystal structure doc](00_crystal_structure.md) for why this one *does*
+need the folder prefix while `xtalname` doesn't).
+
+## Running it
+
+Needs a GPU (EMMCOpenCL is OpenCL-accelerated) — submit it as a SLURM job
+rather than running it on the login node. See
+`../submit_jobs.sh`. To run by hand on an allocated GPU node:
+
+```bash
+export PATH="/project/community/aiosman/emsoft_install/src/EMsoftBuild/Release/Bin:$PATH"
+export OCL_ICD_VENDORS=/etc/OpenCL/vendors   # see submit_jobs.sh for why this is needed
+EMMCOpenCL /project/community/aiosman/Dataset_creation/01_monte_carlo/MCNi.nml
+```
 
 ## What's in `Ni_MC.h5`
 
