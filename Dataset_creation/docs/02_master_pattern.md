@@ -27,6 +27,12 @@ projecting it flat — that's exactly what
 [`03_ebsd_pattern_simulation`](03_ebsd_pattern_simulation.md) does. This
 stage is what makes that cheap.
 
+EMEBSDmaster computes that diffracted intensity over the entire projection sphere around the crystal at once, using your Ni_MC.h5 statistics as the electron source term and full dynamical (multi-beam) diffraction theory.
+
+Once that sphere is computed, every later simulated EBSD pattern (steps 03, 04, 08) is just "pick a patch of the sphere for this orientation/detector geometry and project it flat" — cheap. This is the expensive step that makes everything downstream cheap.
+
+
+
 ## The Bethe approximation
 
 Exact dynamical diffraction requires accounting for every possible
@@ -44,16 +50,29 @@ based on cutoff thresholds. Both master-pattern runs below share the same
 
 ## Two runs, two resolutions
 
-| File | `npx` | `dmin` | Used for |
-|---|---|---|---|
-| `EMEBSDmaster.nml` → `Ni_master.h5` | 100 | 0.05 nm | Standard resolution; not used downstream in this repo, kept for comparison |
-| `EMEBSDmaster_hires.nml` → `Ni_master_hires.h5` | 500 | 0.03 nm | **The one everything else actually uses** |
+Same program (`EMEBSDmaster`), run twice with two different `.nml` config
+files — not two different programs. The difference is just
+resolution/precision settings:
 
-`npx` sets the master pattern's angular sampling (2·npx+1 pixels across);
-`dmin` is the smallest d-spacing (plane spacing) considered — smaller `dmin`
-means more, finer diffracting plane families included. The hi-res version
-exists because the standard resolution wasn't fine enough for the actual
-pattern simulations that follow.
+| | `EMEBSDmaster.nml` | `EMEBSDmaster_hires.nml` |
+|---|---|---|
+| Output | `Ni_master.h5` | `Ni_master_hires.h5` |
+| `npx` | 100 → 201×201 pixel sphere | 500 → 1001×1001 pixel sphere |
+| `dmin` | 0.05 nm | 0.03 nm (finer lattice planes included) |
+| `nthreads` | 0 (auto) | 16 (explicit) |
+| Compute cost | low | much higher (more pixels × more reflections) |
+| Used downstream? | No — kept only for comparison | **Yes** — steps 03, 04, 08 all read this one |
+
+Why keep the low-res one at all: it's cheap enough to eyeball quickly, e.g.
+to sanity-check that the crystal/Bethe/MC setup is working before
+committing to the expensive hi-res run. But it's not fine-grained enough
+for actual pattern simulation — that's literally why the hi-res version
+exists: the standard resolution wasn't fine enough for the actual pattern
+simulations that follow.
+
+Practically: you only need to run `EMEBSDmaster_hires.nml`. The plain
+`EMEBSDmaster.nml` is optional/historical, not a dependency of anything
+later in your pipeline.
 
 `EMEBSDmaster.template` is a blank, generic reference copy — not read by
 anything.

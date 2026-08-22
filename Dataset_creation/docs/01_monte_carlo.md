@@ -16,7 +16,7 @@ of the surface.
 EMsoft's `EMMCOpenCL` program simulates this with a Monte
 Carlo method: launch a huge number of individual virtual electrons, track
 each one's random walk through the crystal step by step, and record the
-statistics of **how they exit — at what energy, at what angle**.
+statistics of **how they exit (and how many exited) — at what energy, at what angle**.
 
 This step knows nothing yet about crystal orientation or a camera. It's
 purely "how does this material scatter electrons of this energy 20keV, entering at
