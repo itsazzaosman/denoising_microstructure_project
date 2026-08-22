@@ -37,6 +37,13 @@ mkdir -p "$PROJECT_DIR/logs"
 
 export PATH="$EMSOFT_BIN:$PATH"
 
+# Fix for OpenBLAS flooding stderr with "Detect OpenMP Loop and this
+# application may hang" (once per BLAS call from inside EMEBSDmaster's
+# own OpenMP threads - hundreds of thousands of lines otherwise): force
+# OpenBLAS single-threaded since the outer nthreads=16 parallelism
+# already comes from EMEBSDmaster itself.
+export OPENBLAS_NUM_THREADS=1
+
 if [[ -z "$(ls -A "$HOME/.config/EMsoft" 2>/dev/null)" ]]; then
     echo "ERROR: EMsoft has not been configured yet (nothing in $HOME/.config/EMsoft)." >&2
     echo "        Run 'EMsoftinit' interactively once before submitting this job." >&2
@@ -52,3 +59,9 @@ fi
 EMEBSDmaster "$NML"
 
 echo "Job finished: $(date)"
+
+# squeue -j 136063
+# scancel 136443
+# cat /project/community/aiosman/logs/master_136063.out
+# cat /project/community/aiosman/logs/master_136063.err
+# tail -f /project/community/aiosman/logs/master_136446.out

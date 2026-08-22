@@ -57,5 +57,7 @@ EMMCOpenCL "$NML"
 echo "Job finished: $(date)"
 
 # squeue -j 136063
+# scancel 136443
 # cat /project/community/aiosman/logs/mc_136063.out
 # cat /project/community/aiosman/logs/mc_136063.err
+# tail -f /project/community/aiosman/logs/mc_136446.out
