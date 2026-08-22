@@ -33,6 +33,42 @@ Once that sphere is computed, every later simulated EBSD pattern (steps 03, 04, 
 
 
 
+## Energy bins
+
+`Ni_MC.h5` doesn't record backscattered electrons at a single energy —
+electrons enter at `EkeV = 20.0` keV but lose varying amounts of energy
+scattering around inside the crystal before escaping. The Monte Carlo step
+sorted all 10⁸ exit events into energy buckets set by `MCNi.nml`'s
+`EkeV = 20.0` (highest), `Ehistmin = 10.0` (lowest), `Ebinsize = 1.0`
+(bucket width) — giving **11 energy bins**: 20, 19, 18, ... down to 10 keV.
+
+`EMEBSDmaster` computes a **full separate diffraction sphere for each of
+these 11 energies** rather than one averaged sphere, because diffraction
+depends on electron wavelength, which depends on energy — a 20 keV electron
+and a 10 keV electron diffract off the same lattice differently (you can
+see the program recompute electron wavelength, interaction constant, etc.
+for each bin in the run log). This is stored as the `mLPNH`/`mLPSH`
+datasets with shape `(numset, numEbins, 2·npx+1, 2·npx+1)` —
+`(1, 11, 1001, 1001)` for the hi-res run.
+
+`view_master_energy_bins.py` plots all 11 bins side by side (same
+brightness scale) as `Ni_master_energybins.png`. Two things stand out:
+
+- **Same geometric pattern in every panel** — the Kikuchi band symmetry
+  only depends on the crystal lattice, not on energy, so all 11 panels
+  show the same underlying diffraction geometry.
+- **Very different brightness/sharpness per panel** — 10 keV is nearly
+  black and noisy, 20 keV is bright and sharp. This reflects electron
+  *statistics*, not diffraction physics: electrons exiting near the full
+  20 keV barely scattered before escaping (common, strong signal), while
+  electrons exiting at only 10 keV had to lose half their energy through
+  repeated inelastic scattering first (rare, weak signal).
+
+This is exactly why the energy dimension is kept separate instead of
+collapsed: [`03_ebsd_pattern_simulation`](03_ebsd_pattern_simulation.md)
+recombines these 11 spheres weighted by the real per-energy electron
+counts from `Ni_MC.h5`, not by treating every energy as equally important.
+
 ## The Bethe approximation
 
 Exact dynamical diffraction requires accounting for every possible
