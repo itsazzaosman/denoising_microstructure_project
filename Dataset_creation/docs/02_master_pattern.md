@@ -32,6 +32,9 @@ EMEBSDmaster computes that diffracted intensity over the entire projection spher
 Once that sphere is computed, every later simulated EBSD pattern (steps 03, 04, 08) is just "pick a patch of the sphere for this orientation/detector geometry and project it flat" — cheap. This is the expensive step that makes everything downstream cheap.
 
 
+So in **short**: input = Monte Carlo statistics + crystal structure + Bethe/resolution settings; output = one HDF5 file carrying the crystal, the original MC data, the new 11-energy-bin diffraction sphere (in two projection styles), and a full provenance trail — everything 03_ebsd_pattern_simulation needs to generate an actual detector-geometry EBSD pattern next.
+
+
 
 ## Energy bins
 
