@@ -43,7 +43,7 @@
 ! '17int' results in the intensity range [ 0 .. 2^(17)-1 ]
  bitdepth = '8bit',
  ! incident beam current [nA]
- beamcurrent = 150.0,
+ beamcurrent = 1.0,
 ! beam dwell time [micro s]
  dwelltime = 1.0,
 ! include Poisson noise ? (y/n) (noise will be applied *before* binning and intensity scaling)
@@ -58,6 +58,7 @@
 ! frame of reference for the Ftensor ['crys':crystal frame (default); 'samp':sample frame]
  Fframe='crys'
 ! if applyDeformation='y' then enter the 3x3 deformation tensor in column-major form
+
 ! the default is the identity tensor, i.e., no deformation
  Ftensor = 1.D0, 0.D0, 0.D0, 0.D0, 1.D0, 0.D0, 0.D0, 0.D0, 1.D0,
 ! intensity scaling mode 'not' = no scaling, 'lin' = linear, 'gam' = gamma correction
