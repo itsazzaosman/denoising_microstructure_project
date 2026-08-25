@@ -37,7 +37,7 @@
 ! name of EBSD master output file; path relative to EMdatapathname
  masterfile = '02_master_pattern/Ni_master_hires.h5',
 ! name of output file; path relative to EMdatapathname
- datafile = '03_ebsd_pattern_simulation/Ni_EBSD_sim.h5',
+ datafile = '03_ebsd_pattern_simulation/Ni_EBSD_sim_NOISY.h5',
 ! bitdepth '8bit' for [0..255] bytes; 'float' for 32-bit reals; '##int' for 32-bit integers with ##-bit dynamic range
 ! e.g., '9int' will get you 32-bit integers with intensities scaled to the range [ 0 .. 2^(9)-1 ];
 ! '17int' results in the intensity range [ 0 .. 2^(17)-1 ]
@@ -45,9 +45,9 @@
  ! incident beam current [nA]
  beamcurrent = 150.0,
 ! beam dwell time [micro s]
- dwelltime = 100.0,
+ dwelltime = 1.0,
 ! include Poisson noise ? (y/n) (noise will be applied *before* binning and intensity scaling)
- poisson = 'n',
+ poisson = 'y',
 ! binning mode (1, 2, 4, or 8)
  binning = 1,
 ! should we perform an approximate computation that includes a lattice distortion? ('y' or 'n')
