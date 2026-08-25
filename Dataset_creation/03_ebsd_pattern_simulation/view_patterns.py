@@ -2,7 +2,8 @@ import h5py, numpy as np, matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-f = h5py.File('Ni_EBSD_sim.h5', 'r')
+# f = h5py.File('Ni_EBSD_sim.h5', 'r')
+f = h5py.File('Ni_EBSD_sim_NOISY.h5', 'r')
 def find(name, obj):
     if isinstance(obj, h5py.Dataset) and obj.ndim >= 3:
         print(name, obj.shape, obj.dtype)
@@ -39,6 +40,6 @@ for k, i in enumerate(chosen):
     ax[k].set_title(labels[k])
     ax[k].axis('off')
 plt.tight_layout()
-plt.savefig('Ni_patterns.png', dpi=150, bbox_inches='tight')
-print('wrote Ni_patterns.png')
+plt.savefig('Ni_patterns_NOISY.png', dpi=150, bbox_inches='tight')
+print('wrote Ni_patterns_NOISY.png')
 print('chosen pattern indices (3 different grains):', chosen)
