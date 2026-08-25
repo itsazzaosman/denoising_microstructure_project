@@ -43,7 +43,7 @@
 ! '17int' results in the intensity range [ 0 .. 2^(17)-1 ]
  bitdepth = '8bit',
  ! incident beam current [nA]
- beamcurrent = 50.0,
+ beamcurrent = 30.0,
 ! beam dwell time [micro s]
  dwelltime = 1.0,
 ! include Poisson noise ? (y/n) (noise will be applied *before* binning and intensity scaling)
