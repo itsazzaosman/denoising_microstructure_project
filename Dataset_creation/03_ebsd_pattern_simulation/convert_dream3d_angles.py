@@ -19,8 +19,8 @@ Run with:
 import os
 import numpy as np
 
-IN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Nickel_100x100_Euler.txt")
-OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Nickel_100x100_angles.txt")
+IN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Nickel_100x100_Euler_v2.txt")
+OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Nickel_100x100_angles_v2.txt")
 
 euler_rad = np.loadtxt(IN_FILE, skiprows=1)
 euler_deg = np.degrees(euler_rad)
