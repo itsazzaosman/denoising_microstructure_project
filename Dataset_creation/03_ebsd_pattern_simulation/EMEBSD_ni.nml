@@ -25,7 +25,7 @@
 ! [Warning: operating systems typically don't like folders with 100,000 files or more...]
  tiff_prefix = 'undefined',
 ! name of angle file (euler angles or quaternions); path relative to EMdatapathname
- anglefile = '03_ebsd_pattern_simulation/Nickel_100x100_angles.txt',
+ anglefile = '03_ebsd_pattern_simulation/Nickel_100x100_angles_v2.txt',
 ! does this file have only orientations ('orientations') or does it also have pattern center and deformation tensor ('orpcdef')
 ! if anglefiletype = 'orpcdef' then each line in the euler input file should look like this: (i.e., 15 floats)
 !   55.551210  58.856774  325.551210  0.0  0.0  15000.0  1.00 0.00 0.00 0.00 1.00 0.00 0.00 0.00 1.00
@@ -37,7 +37,7 @@
 ! name of EBSD master output file; path relative to EMdatapathname
  masterfile = '02_master_pattern/Ni_master_hires.h5',
 ! name of output file; path relative to EMdatapathname
- datafile = '03_ebsd_pattern_simulation/Ni_EBSD_sim.h5',
+ datafile = '03_ebsd_pattern_simulation/Ni_EBSD_sim_v2.h5',
 ! bitdepth '8bit' for [0..255] bytes; 'float' for 32-bit reals; '##int' for 32-bit integers with ##-bit dynamic range
 ! e.g., '9int' will get you 32-bit integers with intensities scaled to the range [ 0 .. 2^(9)-1 ];
 ! '17int' results in the intensity range [ 0 .. 2^(17)-1 ]

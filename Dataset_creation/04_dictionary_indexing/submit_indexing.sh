@@ -19,8 +19,8 @@ DATASET_DIR="$PROJECT_DIR/Dataset_creation"
 EMSOFT_BIN="$PROJECT_DIR/emsoft_install/src/EMsoftBuild/Release/Bin"
 
 # Pointing to the EMEBSDDI template we just configured
-# NML="$DATASET_DIR/04_dictionary_indexing/EMEBSDDI.nml"
-NML="$DATASET_DIR/04_dictionary_indexing/EMEBSDDI_noise.nml"
+NML="$DATASET_DIR/04_dictionary_indexing/EMEBSDDI.nml"
+# NML="$DATASET_DIR/04_dictionary_indexing/EMEBSDDI_noise.nml"
 
 
 echo "Job started: $(date)"
