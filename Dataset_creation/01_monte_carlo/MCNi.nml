@@ -73,5 +73,5 @@
 ! output data file name; pathname is relative to the EMdatapathname path !!!
  dataname = '01_monte_carlo/Ni_MC.h5'
 ! should the user be notified by email or Slack that the program has completed its run?
- Notify = 'on',
+ Notify = 'of',
  /
