@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd"[]>
+<Xdmf xmlns:xi="http://www.w3.org/2003/XInclude" Version="2.2">
+ <Domain>
+<Grid Name="CellTime" GridType="Collection" CollectionType="Temporal">
+  <!-- *************** START OF ImageDataContainer *************** -->
+  <Grid Name="ImageDataContainer" GridType="Uniform">
+    <Time TimeType="Single" Value="0"/>
+    <Topology TopologyType="3DCoRectMesh" Dimensions="2 101 101 "></Topology>
+    <Geometry Type="ORIGIN_DXDYDZ">
+      <!-- Origin  Z, Y, X -->
+      <DataItem Format="XML" Dimensions="3">0 0 0</DataItem>
+      <!-- DxDyDz (Spacing/Resolution) Z, Y, X -->
+      <DataItem Format="XML" Dimensions="3">1 1 1</DataItem>
+    </Geometry>
+    <Attribute Name="Confidence Index" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="1 100 100 1" NumberType="Float" Precision="4" >
+        noisy.dream3d:/DataContainers/ImageDataContainer/CellData/Confidence Index
+      </DataItem>
+    </Attribute>
+    <Attribute Name="EulerAngles" AttributeType="Vector" Center="Cell">
+      <DataItem Format="HDF" Dimensions="1 100 100 3" NumberType="Float" Precision="4" >
+        noisy.dream3d:/DataContainers/ImageDataContainer/CellData/EulerAngles
+      </DataItem>
+    </Attribute>
+    <Attribute Name="Fit" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="1 100 100 1" NumberType="Float" Precision="4" >
+        noisy.dream3d:/DataContainers/ImageDataContainer/CellData/Fit
+      </DataItem>
+    </Attribute>
+    <Attribute Name="IPFColor" AttributeType="Vector" Center="Cell">
+      <DataItem Format="HDF" Dimensions="1 100 100 3" NumberType="UChar" Precision="1" >
+        noisy.dream3d:/DataContainers/ImageDataContainer/CellData/IPFColor
+      </DataItem>
+    </Attribute>
+    <Attribute Name="Image Quality" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="1 100 100 1" NumberType="Float" Precision="4" >
+        noisy.dream3d:/DataContainers/ImageDataContainer/CellData/Image Quality
+      </DataItem>
+    </Attribute>
+    <Attribute Name="Phases" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="1 100 100 1" NumberType="Int" Precision="4" >
+        noisy.dream3d:/DataContainers/ImageDataContainer/CellData/Phases
+      </DataItem>
+    </Attribute>
+    <Attribute Name="SEM Signal" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="1 100 100 1" NumberType="Float" Precision="4" >
+        noisy.dream3d:/DataContainers/ImageDataContainer/CellData/SEM Signal
+      </DataItem>
+    </Attribute>
+    <Attribute Name="X Position" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="1 100 100 1" NumberType="Float" Precision="4" >
+        noisy.dream3d:/DataContainers/ImageDataContainer/CellData/X Position
+      </DataItem>
+    </Attribute>
+    <Attribute Name="Y Position" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="1 100 100 1" NumberType="Float" Precision="4" >
+        noisy.dream3d:/DataContainers/ImageDataContainer/CellData/Y Position
+      </DataItem>
+    </Attribute>
+  </Grid>
+  <!-- *************** END OF ImageDataContainer *************** -->
+ </Grid>
+ </Domain>
+</Xdmf>
