@@ -30,6 +30,15 @@ Also in `docs/`: [`EMsoft-WSL-Guide.md`](EMsoft-WSL-Guide.md), the standalone
 build/install guide for EMsoft itself on WSL2 — unrelated to the pipeline
 narrative above, kept for reference.
 
+## Later addition: dictionary indexing
+
+Added after the 00–09 sequence above, and unrelated to it despite the
+shared `04_` folder prefix (a naming collision, not a reading-order
+overlap): [`04_dictionary_indexing.md`](04_dictionary_indexing.md) —
+re-indexes `03`'s simulated patterns (clean and noisy) with EMsoft's GPU
+dictionary indexer and produces orientation maps for visualization in
+ParaView.
+
 ## The headline finding
 
 Skip ahead to [evaluation.md](09_evaluation.md#results) if you just want the
