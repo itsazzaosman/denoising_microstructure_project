@@ -102,7 +102,7 @@
 !###################################################################
 !
 ! name of datafile where the patterns are stored; path relative to EMdatapathname
- exptfile = '03_ebsd_pattern_simulation/Ni_EBSD_sim.h5',
+ exptfile = '03_ebsd_pattern_simulation/Ni_EBSD_sim_NOISY.h5',
 ! input file type parameter: Binary, EMEBSD, EMEBSD32i, EMEBSD32f, TSLHDF, TSLup2,
 !                            OxfordHDF, OxfordBinary, BrukerHDF, NORDIF
  inputtype = 'EMEBSD',
@@ -123,11 +123,11 @@
 ! use an existing tmp file with the name above ?
  usetmpfile = 'n',
 ! output file ; path relative to EMdatapathname
- datafile = '04_dictionary_indexing/Ni_CLEAN_indexed.h5',
+ datafile = '04_dictionary_indexing/Ni_NOISY_indexed.h5',
 ! ctf output file ; path relative to EMdatapathname
  ctffile = 'undefined',
 ! ang output file ; path relative to EMdatapathname
- angfile = '04_dictionary_indexing/Ni_CLEAN_indexed.ang',
+ angfile = '04_dictionary_indexing/Ni_NOISY_indexed.ang',
 ! euler angle input file
  eulerfile = 'undefined'
 
