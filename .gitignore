@@ -2,3 +2,6 @@
 training/*
 emsoft_install/*
 logs/*
+**/euler_maps/*
+**/angles/*
+**/_nml_tmp/*
