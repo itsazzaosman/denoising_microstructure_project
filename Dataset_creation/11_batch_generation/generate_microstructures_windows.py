@@ -33,16 +33,16 @@ PIPELINE_RUNNER = Path(
     r"C:\Users\Ahmed Alhassan\Downloads\DREAM3D-6.5.171-Win64\DREAM3D-6.5.171-Win64\PipelineRunner.exe"
 )
 TEMPLATE_JSON = Path(
-    r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Ni_pipeline_A_generate_microstructure.json"
+    r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Pipline For Pictures Only\Ni_pipline_A_generate_microstructure_with_pictures_only.json"
 )
-OUTPUT_DIR = Path(r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Ni_dataset\euler_maps")
-TEMP_PIPELINE_DIR = Path(r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Ni_dataset\_pipelines_tmp")
-LOG_FILE = Path(r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Ni_dataset\generate_log.txt")
+OUTPUT_DIR = Path(r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Pipline For Pictures Only\Ni_dataset_new\ni_clean_maps")
+TEMP_PIPELINE_DIR = Path(r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Pipline For Pictures Only\Ni_dataset_new\pipelines_tmp")
+LOG_FILE = Path(r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Pipline For Pictures Only\Ni_dataset_new\generate_log.txt")
 
 NUM_MAPS = 40_000
-FILENAME_PATTERN = "Euler_{:05d}.txt"  # -> Euler_00001.txt ... Euler_10000.txt
+FILENAME_PATTERN = "Map_{:05d}.png"  # -> Map_00001.png ... Map_10000.png
 
-EXPORT_FILTER_NAME = "WriteASCIIData"  # the "Export ASCII Data" step's internal name
+EXPORT_FILTER_NAME = "ITKImageWriter"  # the "Export ASCII Data" step's internal name
 RUNNER_ARGS = ["-p"]  # verify against `PipelineRunner.exe --help` first
 TIMEOUT_SECONDS = 300
 # ======================================================================
@@ -57,8 +57,8 @@ def set_output_path(pipeline, output_file):
     """Point the Export ASCII Data filter at a fresh output file for this run."""
     for filt in pipeline.values():
         if isinstance(filt, dict) and filt.get("Filter_Name") == EXPORT_FILTER_NAME:
-            filt["OutputFilePath"] = str(output_file)
-            filt["OutputPath"] = str(output_file.parent)
+            filt["FileName"] = str(output_file)
+            # filt["OutputPath"] = str(output_file.parent)
             return
     raise RuntimeError(f"No filter named '{EXPORT_FILTER_NAME}' found in the pipeline JSON")
 
