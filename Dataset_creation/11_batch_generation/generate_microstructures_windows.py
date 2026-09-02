@@ -29,9 +29,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-# ======================================================================
-# SETTINGS - edit these paths for your machine before running
-# ======================================================================
 PIPELINE_RUNNER = Path(
     r"C:\Users\Ahmed Alhassan\Downloads\DREAM3D-6.5.171-Win64\DREAM3D-6.5.171-Win64\PipelineRunner.exe"
 )
@@ -42,7 +39,7 @@ OUTPUT_DIR = Path(r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Ni_dataset\euler_ma
 TEMP_PIPELINE_DIR = Path(r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Ni_dataset\_pipelines_tmp")
 LOG_FILE = Path(r"C:\Users\Ahmed Alhassan\OneDrive\Desktop\Ni_dataset\generate_log.txt")
 
-NUM_MAPS = 10_000
+NUM_MAPS = 40_000
 FILENAME_PATTERN = "Euler_{:05d}.txt"  # -> Euler_00001.txt ... Euler_10000.txt
 
 EXPORT_FILTER_NAME = "WriteASCIIData"  # the "Export ASCII Data" step's internal name
