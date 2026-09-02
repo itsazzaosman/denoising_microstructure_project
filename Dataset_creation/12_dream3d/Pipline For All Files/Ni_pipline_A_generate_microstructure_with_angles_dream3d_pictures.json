@@ -691,7 +691,7 @@
         "WriteXdmfFile": 1
     },
     "PipelineBuilder": {
-        "Name": "Ni_pipline_A_generate_microstructure",
+        "Name": "Ni_pipline_A_generate_microstructure_with_angles_dream3d_pictures",
         "Number_Filters": 11,
         "Version": 6
     }
