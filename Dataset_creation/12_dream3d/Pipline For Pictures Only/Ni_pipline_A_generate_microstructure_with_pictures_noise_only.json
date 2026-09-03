@@ -674,7 +674,7 @@
         "Plane": 0
     },
     "PipelineBuilder": {
-        "Name": "Ni_pipline_A_generate_microstructure_with_pictures_only",
+        "Name": "Ni_pipline_A_generate_microstructure_with_pictures_noise_only",
         "Number_Filters": 10,
         "Version": 6
     }
