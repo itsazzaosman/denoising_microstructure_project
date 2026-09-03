@@ -7,3 +7,7 @@ logs/*
 **/_nml_tmp/*
 **/ni_clean_maps/
 **/ni_g_noisy_maps/
+
+
+# *.pth
+# **/_pycache__/*
