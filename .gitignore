@@ -9,3 +9,6 @@ logs/*
 **/ni_g_noisy_maps/
 *.pth
 **/__pycache__/
+datasets/*
+emsoft_tmp/
+*.npy
