@@ -12,3 +12,4 @@ logs/*
 datasets/*
 emsoft_tmp/
 *.npy
+Dataset_creation/12_dream3d/Pipline For Pictures Only/ni_dataset.tar.gz
