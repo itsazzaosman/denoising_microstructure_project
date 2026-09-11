@@ -12,7 +12,8 @@ Layout:
     |-- checkpoints/             model weights (.pth) + history.json
     |-- visualize/
     |   |-- curves/              loss / PSNR / SSIM plots
-    |   `-- comparisons/         clean | noisy | denoised figures
+    |   |-- comparisons/         clean | noisy | denoised figures
+    |   `-- grain_analysis/      grain segmentation + boundary accuracy
     `-- src/                     the code
 """
 
@@ -36,6 +37,7 @@ HISTORY_JSON = os.path.join(CHECKPOINTS_DIR, "history.json")  # per-epoch metric
 VISUALIZE_DIR = os.path.join(PROJECT_DIR, "visualize")
 CURVES_DIR = os.path.join(VISUALIZE_DIR, "curves")
 COMPARISONS_DIR = os.path.join(VISUALIZE_DIR, "comparisons")
+GRAIN_ANALYSIS_DIR = os.path.join(VISUALIZE_DIR, "grain_analysis")
 
 
 def ensure_dirs(*dirs):

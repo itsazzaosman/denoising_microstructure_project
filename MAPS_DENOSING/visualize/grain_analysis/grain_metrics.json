@@ -1,0 +1,23 @@
+{
+  "maps": 200,
+  "grain_count_true_mean": 49.955,
+  "grain_count_pred_mean": 49.145,
+  "grain_count_clean_seg_mean": 49.8,
+  "grain_count_exact_match": 0.415,
+  "grain_count_within_1": 0.805,
+  "grain_count_mae": 0.82,
+  "boundary_precision": 0.9985469120474724,
+  "boundary_recall": 0.9886272294552492,
+  "boundary_f1": 0.9935376022545808,
+  "boundary_iou": 0.9236057152499394,
+  "disp_median_px": 0.0,
+  "disp_mean_px": 0.06823595179605783,
+  "disp_p95_px": 1.0,
+  "within_1px": 0.9985363501095401,
+  "within_2px": 0.9998710193583119,
+  "intra_grain_std_clean": 0.0,
+  "intra_grain_std_denoised": 4.454254952639984,
+  "intra_grain_std_noisy": 24.75869282642116,
+  "tolerance_px": 1.0,
+  "std_threshold": 2.0
+}
