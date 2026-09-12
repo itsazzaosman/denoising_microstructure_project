@@ -9,12 +9,13 @@
 set -euo pipefail
 
 echo "Installing conda-lock (if not already installed)..."
-conda install -y -c conda-forge conda-lock
+~/miniconda3/bin/conda install -y -c conda-forge conda-lock 2>&1 | tail -3
 
-echo "Generating conda-lock.yml from environment.yml..."
-conda-lock lock --file environment.yml --lockfile conda-lock.yml
+echo "Generating conda-lock.yml from environment.yml (linux-64 only)..."
+# Only lock for linux-64 to avoid cross-platform resolution issues
+conda-lock lock --file environment.yml --lockfile conda-lock.yml --platform linux-64
 
 echo "✓ Generated conda-lock.yml"
 echo ""
-echo "To reproduce this exact environment on another machine:"
+echo "To reproduce this exact environment on Linux:"
 echo "  conda-lock install --name ebsd conda-lock.yml"

@@ -88,3 +88,167 @@ h5py                          HDF5 file support (auto-resolved)
 ```
 
 Everything else (GPU libraries, transitive deps) is auto-resolved by conda.
+
+---
+
+## Each File Explained Simply
+
+### **1. `environment.yml`** ← START HERE
+**What it is:** A shopping list of packages your code needs.
+
+**Example:**
+```yaml
+name: ebsd
+dependencies:
+  - python=3.11
+  - pytorch::torch==2.12.1
+  - pytorch::torchvision==0.27.1
+  - numpy=2.2.6
+  - scipy=1.15.3
+  - pillow=12.3.0
+  - matplotlib=3.10.9
+```
+
+**What it means:** "I need torch version 2.12.1, numpy 2.2.6, etc."
+
+**When to edit:** Only if you need a NEW package (e.g., adding tensorboard)
+
+---
+
+### **2. `pyproject.toml`** ← Modern Python Standard
+**What it is:** Python's standard way to describe a project.
+
+**What it does:** Lists the same dependencies as `environment.yml` but in Python's standard format.
+
+**Why both files?** 
+- `environment.yml` = for conda (handles GPU/CUDA easily)
+- `pyproject.toml` = for Python ecosystem compatibility
+
+**You probably won't touch this.**
+
+---
+
+### **3. `conda-lock.yml`** ← The "Exact Blueprint" (Generate once)
+**What it is:** A lock file that says "use EXACTLY this version, this build, this everything."
+
+**Example:** Instead of "torch 2.12.1", it says "torch 2.12.1 build cu130_py311_5.8"
+
+**Why?** Conda can resolve packages differently on different computers. This guarantees identical setup everywhere.
+
+**How to generate (first time only):**
+```bash
+cd /project/community/aiosman/MAPS_DENOSING
+bash generate-conda-lock.sh
+```
+
+**Status:** Created automatically by `generate-conda-lock.sh`
+
+---
+
+### **4. `SETUP.md`** ← Instructions for Others
+**What it is:** A README that explains how to set up the environment.
+
+**For others:** "Run `conda env create -f environment.yml` to get the exact setup"
+
+**You don't need to read this unless you're stuck.**
+
+---
+
+### **5. `generate-conda-lock.sh`** ← One-Time Setup Script
+**What it is:** A script that creates `conda-lock.yml`.
+
+**When to run:** Once now, then only if you update `environment.yml`.
+
+```bash
+bash generate-conda-lock.sh
+```
+
+**What it does:**
+1. Installs a tool called `conda-lock`
+2. Creates `conda-lock.yml` (the exact blueprint)
+3. Ready to commit to git
+
+---
+
+## Your Workflow (Day-to-Day)
+
+### **Normal Training (Right Now)**
+```bash
+# Everything is already set up. Just run:
+sbatch MAPS_DENOSING/src/train_model.sh
+```
+
+**That's it.** Nothing changes for you. The script now uses the `ebsd` environment instead of `diffusion`.
+
+---
+
+### **If You Need a New Package**
+
+Example: You want to add `tensorboard` for visualization.
+
+**Step 1:** Edit `MAPS_DENOSING/environment.yml`
+```yaml
+dependencies:
+  - python=3.11
+  - pytorch::torch==2.12.1
+  - ... (other stuff)
+  - tensorboard    # ← ADD THIS
+```
+
+**Step 2:** Regenerate the lock
+```bash
+bash MAPS_DENOSING/generate-conda-lock.sh
+```
+
+**Step 3:** Commit both files
+```bash
+git add MAPS_DENOSING/environment.yml MAPS_DENOSING/conda-lock.yml
+git commit -m "Add tensorboard for visualization"
+```
+
+---
+
+## For Someone Else to Run Your Code
+
+They would do:
+```bash
+conda-lock install --name ebsd MAPS_DENOSING/conda-lock.yml
+conda activate ebsd
+cd MAPS_DENOSING/src
+python train.py --epochs 50
+```
+
+**Result:** Identical environment to yours, guaranteed.
+
+---
+
+## Quick Reference: Do I Touch This File?
+
+| File | Do I Edit? | Why? | When? |
+|------|---|---|---|
+| `environment.yml` | **YES** (sometimes) | Lists what to install | Only if adding packages |
+| `pyproject.toml` | No | Python standard format | Never (auto-synced) |
+| `conda-lock.yml` | No (auto-generated) | Exact blueprint | Generate once with script |
+| `.gitignore` | No | Keeps git clean | Never |
+| `SETUP.md` | No (reference only) | Instructions for others | Read if stuck |
+| `generate-conda-lock.sh` | Run once | Creates lock file | Once now, then only if updating environment.yml |
+
+---
+
+## One-Time Setup: Do This Now
+
+Generate the lock file (first time only):
+
+```bash
+cd /project/community/aiosman/MAPS_DENOSING
+bash generate-conda-lock.sh
+```
+
+Then commit it:
+
+```bash
+git add conda-lock.yml
+git commit -m "Lock exact conda versions for reproducibility"
+```
+
+**After that?** You're done. Keep using the cluster as normal. Everything else happens automatically.
