@@ -18,7 +18,7 @@
 #  - no `module load` - this cluster doesn't provide python/cuda modules, so we
 #    call the conda env's interpreter directly. `conda activate` is avoided on
 #    purpose: it needs shell-hook init that isn't present in a batch job.
-#  - the "diffusion" env has torch 2.12.1+cu130, torchvision and PIL.
+#  - the "ebsd" env has torch 2.12.1+cu130, torchvision and PIL.
 #  - cpus-per-task=8 matches train.py's --num-workers 8.
 #
 # Outputs (all resolved by src/paths.py, relative to MAPS_DENOSING/):
@@ -35,7 +35,7 @@ set -euo pipefail
 
 PROJECT_DIR=/project/community/aiosman
 SCRIPT_DIR="$PROJECT_DIR/MAPS_DENOSING/src"
-PYTHON="$HOME/miniconda3/envs/diffusion/bin/python"
+PYTHON="$HOME/miniconda3/envs/ebsd/bin/python"
 
 mkdir -p "$PROJECT_DIR/logs"
 

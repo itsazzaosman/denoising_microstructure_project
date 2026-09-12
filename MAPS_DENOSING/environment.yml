@@ -1,0 +1,25 @@
+name: ebsd
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  # Core ML/scientific
+  - python=3.11
+  - pytorch::torch::2.12.1
+  - pytorch::torchvision::0.27.1
+  - pytorch::pytorch-cuda=13.1
+  - numpy=2.2.6
+  - scipy=1.15.3
+  - pillow=12.3.0
+  - matplotlib=3.10.9
+  - tqdm=4.68.3
+  - h5py
+
+  # Utilities
+  - gitpython
+  - pyyaml
+
+  # For development/notebooks (optional but included)
+  - jupyter
+  - ipython

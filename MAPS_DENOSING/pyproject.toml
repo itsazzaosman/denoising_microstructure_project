@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ebsd-denoiser"
+version = "1.0.0"
+description = "U-Net denoiser for EBSD orientation maps with grain-level evaluation"
+readme = "README.md"
+authors = [
+    {name = "Azza Osman", email = "azzaizzeldien@gmail.com"},
+]
+
+dependencies = [
+    "torch==2.12.1",
+    "torchvision==0.27.1",
+    "numpy==2.2.6",
+    "pillow==12.3.0",
+    "scipy==1.15.3",
+    "matplotlib==3.10.9",
+    "tqdm==4.68.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jupyter>=1.0.0",
+    "ipython>=8.0.0",
+]
+
+[tool.setuptools]
+packages = []
