@@ -30,6 +30,7 @@ class DoubleConv(nn.Module):
     """(conv -> norm -> SiLU) x 2, the standard U-Net building block."""
 
     def __init__(self, in_channels, out_channels):
+        #number of feature channels entering the block and number of feature channnels leaving the block
         super().__init__()
         self.block = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),

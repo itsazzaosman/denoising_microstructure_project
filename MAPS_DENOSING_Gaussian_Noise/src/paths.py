@@ -22,18 +22,18 @@ import os
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SRC_DIR)
 
-# --- inputs ---------------------------------------------------------------
+#input to the model: clean
 DATASETS_DIR = os.path.join(PROJECT_DIR, "datasets")
 CLEAN_DIR = os.path.join(DATASETS_DIR, "ni_clean_maps")
 NOISY_DIR = os.path.join(DATASETS_DIR, "ni_g_noisy_maps")
 
-# --- model weights --------------------------------------------------------
+#model weights
 CHECKPOINTS_DIR = os.path.join(PROJECT_DIR, "checkpoints")
-BEST_CHECKPOINT = os.path.join(CHECKPOINTS_DIR, "best.pth")   # highest val PSNR
-LAST_CHECKPOINT = os.path.join(CHECKPOINTS_DIR, "last.pth")   # most recent epoch
-HISTORY_JSON = os.path.join(CHECKPOINTS_DIR, "history.json")  # per-epoch metrics
+BEST_CHECKPOINT = os.path.join(CHECKPOINTS_DIR, "best.pth")   
+LAST_CHECKPOINT = os.path.join(CHECKPOINTS_DIR, "last.pth")   
+HISTORY_JSON = os.path.join(CHECKPOINTS_DIR, "history.json")  
 
-# --- visual output --------------------------------------------------------
+#visual output
 VISUALIZE_DIR = os.path.join(PROJECT_DIR, "visualize")
 CURVES_DIR = os.path.join(VISUALIZE_DIR, "curves")
 COMPARISONS_DIR = os.path.join(VISUALIZE_DIR, "comparisons")
