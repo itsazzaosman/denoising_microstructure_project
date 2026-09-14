@@ -12,3 +12,5 @@ logs/*
 emsoft_tmp/
 *.npy
 MAPS_DENOSING/datasets/*
+*.zip
+MAPS_DENOISING_Orientation_Noise/datasets/*
