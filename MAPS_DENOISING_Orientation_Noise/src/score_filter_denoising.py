@@ -163,9 +163,19 @@ def main():
     rows.append(("noisy (no filter)", score(q_clean, euler_to_quat(load_euler(args.noisy)),
                                             sym, bad, bnd)))
 
+    # Restrict to results for THIS map. Without this the glob picks up every
+    # map's outputs -- once the model has written 500 of them, each would be
+    # scored against map 1's truth and printed as another "unet" row.
+    import re
+    mid = re.search(r"map_(\d+)", Path(args.clean).name)
     files = sorted(Path(args.results).glob("*__*.txt"))
+    if mid:
+        want = int(mid.group(1))
+        files = [f for f in files
+                 if (m := re.search(r"map_(\d+)", f.name)) and int(m.group(1)) == want]
     if not files:
-        print(f"warning: no *__*.txt files in {args.results}")
+        print(f"warning: no *__*.txt files for map {mid.group(1) if mid else '?'} "
+              f"in {args.results}")
     for f in files:
         method = f.stem.split("__")[-1]
         try:

@@ -176,7 +176,16 @@ def main():
     panels.append(("noisy (input)", q_noisy, disorientation_deg(q_clean, q_noisy, sym)))
 
     if args.results:
+        # Keep only results for THIS map before keying by method name. The glob
+        # spans every map, so without the filter `found["unet"]` silently picks
+        # up whichever map sorted last and plots it against map 1's truth.
+        import re
+        want = re.search(r"map_(\d+)", Path(args.clean).name)
         files = sorted(Path(args.results).glob("*__*.txt"))
+        if want:
+            wid = int(want.group(1))
+            files = [f for f in files
+                     if (m := re.search(r"map_(\d+)", f.name)) and int(m.group(1)) == wid]
         found = {f.stem.split("__")[-1]: f for f in files}
         names = args.only if args.only else sorted(found)
         for name in names:
