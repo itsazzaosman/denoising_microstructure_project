@@ -13,6 +13,7 @@ emsoft_tmp/
 *.npy
 MAPS_DENOSING/datasets/*
 *.zip
-MAPS_DENOISING_Orientation_Noise/datasets/*
 MAPS_DENOSING_Gaussian_Noise/datasets/*
-MAPS_DENOISING_Orientation_Noise/mtex_out/*
+MAPS_DENOISING_Orientation_Noise/datasets/*
+MAPS_DENOISING_Orientation_Noise/checkpoints/*
+MAPS_DENOISING_Orientation_Noise/MATLAB_MTEX_OUTPUT/*

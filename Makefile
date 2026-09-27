@@ -25,14 +25,21 @@ auth:
 
 ls:
 	gcloud storage ls $(BUCKET)/
+ls-training:
+	gcloud storage ls $(BUCKET)/training/
+
+ls-datasets:
+	gcloud storage ls $(BUCKET)/DATASET_CHECKPOINTS/datasets/
+ls-checkpoints:
+	gcloud storage ls $(BUCKET)/DATASET_CHECKPOINTS/checkpoints/
 
 # gcloud storage rsync -r ./emsoft_install $(BUCKET)/emsoft_install 
 upload:
-	gcloud storage rsync -r ./training $(BUCKET)/training
+	gcloud storage rsync -r ./DATASET_CHECKPOINTS/datasets $(BUCKET)/DATASET_CHECKPOINTS/datasets
 	
 # gcloud storage rsync -r ./emsoft_install $(BUCKET)/emsoft_install
 download:
-	gcloud storage rsync -r $(BUCKET)/training ./training
+	gcloud storage rsync -r $(BUCKET)/DATASET_CHECKPOINTS/datasets ./DATASET_CHECKPOINTS/datasets
 
 # Print the numbers: how far each denoised map in mtex_out/ sits from the
 # truth. Use this when you want to RANK the filters -- it gives the median
@@ -106,3 +113,6 @@ watch:
 
 # Both of the single-map targets, the usual thing to run after a new MTEX sweep.
 maps: score plot
+
+
+# rclone lsf "onedrive:Desktop/Research Project - Material Science + Diffusion Models/Pipline For Pictures and Euler Angles Only/"
