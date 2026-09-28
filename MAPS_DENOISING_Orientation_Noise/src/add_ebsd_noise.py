@@ -3,7 +3,7 @@
 Add realistic EBSD noise to a clean DREAM.3D Euler-angle map, and export to
 .ang so MTEX can read the same data.
 
-Two noise types, applied together, because real maps have both:
+Two noise types, applied together (and first sperately to test each), because real maps have both:
 
   1. SCATTER   every pixel is nudged by a small random rotation (< a few deg).
                This is angular uncertainty in indexing. DREAM.3D's
@@ -173,9 +173,7 @@ def add_noise(euler, shape, scatter_deg, misindex_frac, boundary_bias, rng):
     return quat_to_euler(q), bad_idx
 
 
-# ---------------------------------------------------------------------------
-# I/O
-# ---------------------------------------------------------------------------
+
 
 HEADER = "EulerAngles_0 EulerAngles_1 EulerAngles_2"
 
@@ -277,9 +275,19 @@ def process_one(in_path, out_path, shape, args, rng, quiet=False):
         mask[bad_idx] = True
         np.save(str(out_path) + ".badmask.npy", mask.reshape(shape))
     if args.ang:
-        base = str(out_path).rsplit(".", 1)[0]
-        save_ang(base + "_clean.ang", euler, shape, args.step)
-        save_ang(base + "_noisy.ang", noisy, shape, args.step)
+        out_path = Path(out_path)
+
+        ang_dir = out_path.parent / "ang_files"
+        ang_dir.mkdir(parents=True, exist_ok=True)
+
+        save_ang(
+            ang_dir / f"{out_path.stem}_clean.ang",
+            euler, shape, args.step
+        )
+        save_ang(
+            ang_dir / f"{out_path.stem}_noisy.ang",
+            noisy, shape, args.step
+        )
 
     if not quiet:
         print(f"  {os.path.basename(str(in_path))} -> {out_path}  "
@@ -318,7 +326,6 @@ def main():
     shape = tuple(args.shape)
     in_path = Path(args.clean)
 
-    # ---------- single file ----------
     if in_path.is_file():
         rng = np.random.default_rng(args.seed)
         n_bad = process_one(in_path, Path(args.noisy), shape, args, rng, quiet=True)
@@ -360,8 +367,11 @@ def main():
         if args.save_mask:
             wanted.append(Path(str(out_path) + ".badmask.npy"))
         if args.ang:
-            base = str(out_path).rsplit(".", 1)[0]
-            wanted += [Path(base + "_clean.ang"), Path(base + "_noisy.ang")]
+            ang_dir = out_path.parent / "ang_files"
+            wanted += [
+                ang_dir / f"{out_path.stem}_clean.ang",
+                ang_dir / f"{out_path.stem}_noisy.ang"
+            ]
 
         if all(w.exists() for w in wanted):
             skipped += 1

@@ -27,7 +27,7 @@ from orientation import load_euler
 
 ROOT = Path(__file__).resolve().parent.parent
 CLEAN_DIR = ROOT / "datasets/clean_euler"
-NOISY_DIR = ROOT / "datasets/noisy_mis05"
+NOISY_DIR = ROOT / "datasets/noisy_scatter5"
 CACHE_DIR = ROOT / "datasets/cache"
 
 TEST_MAX_ID = 500          # maps 1-500 are the MTEX baseline set; never train on them

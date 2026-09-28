@@ -159,6 +159,7 @@ class GatedOrientationUNet(nn.Module):
             # signal the refinement depends on.
             with torch.no_grad():
                 corr = local_correction(q_noisy.float(), radius=self.mean_radius,
+                                        tol_deg=8.0,
                                         scale_deg=CORR_SCALE_DEG).detach()
             chans.append(corr.permute(0, 3, 1, 2))
         if self.use_misfit:

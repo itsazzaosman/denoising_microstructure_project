@@ -27,7 +27,7 @@ CACHE = ROOT / "datasets/cache"
 
 # Matches how datasets/noisy_mis05 was generated: 0-1 deg scatter on every
 # pixel, 5% of pixels replaced outright, 4x more likely on a grain boundary.
-DEFAULT_NOISE = dict(scatter_deg=1.0, misindex=0.05, boundary_bias=4.0)
+DEFAULT_NOISE = dict(scatter_deg=5.0, misindex=0.0, boundary_bias=4.0)
 
 
 # ---------------------------------------------------------------------------
