@@ -114,5 +114,14 @@ watch:
 # Both of the single-map targets, the usual thing to run after a new MTEX sweep.
 maps: score plot
 
-
+# To see what is in the onedrive folder, run this command. It is a bit slow
 # rclone lsf "onedrive:Desktop/Research Project - Material Science + Diffusion Models/Pipline For Pictures and Euler Angles Only/"
+# if you want to download the whole thing, run this command. It is very slow.
+# rclone copyto "onedrive:Desktop/Research Project - Material Science + Diffusion Models/Pipline For Pictures and Euler Angles Only/misorientation_noise_dataset_5deg/mag5/clean_euler.tar" "/project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/clean_euler.tar" --progress
+
+
+# First run this add_ebsd_noise.py script to generate the noisy dataset that we use for MTEX:
+# python src/add_ebsd_noise.py \
+  datasets/clean_euler datasets/noise_scatter5 \
+  --shape 128 128 --limit 500 \
+  --scatter 5.0 --misindex 0 --save-mask --ang
