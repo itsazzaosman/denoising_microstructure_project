@@ -110,12 +110,19 @@ class GatedOrientationUNet(nn.Module):
     """
 
     def __init__(self, base=64, max_refine_deg=5.0, gate_bias=-4.0, use_misfit=True,
-                 gate_deadzone=0.05, mean_radius=4):
+                 gate_deadzone=0.05, mean_radius=4, mean_tol_deg=2.0):
         super().__init__()
         self.use_misfit = use_misfit
         self.max_refine = math.radians(max_refine_deg)
         self.gate_deadzone = gate_deadzone
         self.mean_radius = mean_radius
+        # Which neighbours count as "same grain" for the local mean. Must sit
+        # above the spread the scatter puts between two neighbouring pixels and
+        # below the smallest grain misorientation. At 1 deg scatter neighbours
+        # differ by <=2 deg so 2.0 works; at 5 deg they differ by up to ~10 deg
+        # and a 2 deg tolerance discards 82% of the window, gutting the filter.
+        # Rule of thumb: ~1.6x the max scatter angle.
+        self.mean_tol_deg = mean_tol_deg
 
         in_ch = 9 + (3 if mean_radius else 0) + (1 if use_misfit else 0)
         self.inc = DoubleConv(in_ch, base)                 # 128
@@ -159,7 +166,7 @@ class GatedOrientationUNet(nn.Module):
             # signal the refinement depends on.
             with torch.no_grad():
                 corr = local_correction(q_noisy.float(), radius=self.mean_radius,
-                                        tol_deg=8.0,
+                                        tol_deg=self.mean_tol_deg,
                                         scale_deg=CORR_SCALE_DEG).detach()
             chans.append(corr.permute(0, 3, 1, 2))
         if self.use_misfit:

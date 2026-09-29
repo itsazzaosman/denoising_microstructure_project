@@ -22,7 +22,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from architecture import GatedOrientationUNet, boundary_mask
-from dataset import TestMaps
+from dataset import DirMaps, TestMaps
 from orientation_torch import disorientation_deg, quat_to_euler
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -40,6 +40,10 @@ def main():
     p.add_argument("--batch-size", type=int, default=16)
     p.add_argument("--limit", type=int, default=0)
     p.add_argument("--no-amp", action="store_true")
+    p.add_argument("--clean-dir", default=None,
+                   help="with --noisy-dir, read .txt pairs from these directories "
+                        "instead of the packed test cache")
+    p.add_argument("--noisy-dir", default=None)
     args = p.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -49,6 +53,7 @@ def main():
         base=targs.get("base_channels", 64),
         max_refine_deg=targs.get("max_refine_deg", 5.0),
         mean_radius=targs.get("mean_radius", 4),
+        mean_tol_deg=targs.get("mean_tol", 2.0),
         use_misfit=not targs.get("no_misfit", False),
     ).to(device)
     model.load_state_dict(ck["model"])
@@ -60,7 +65,13 @@ def main():
     if not args.no_amp and device.type == "cuda":
         amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
 
-    ds = TestMaps(shape=tuple(args.shape), limit=args.limit)
+    if args.noisy_dir:
+        if not args.clean_dir:
+            p.error("--noisy-dir requires --clean-dir")
+        ds = DirMaps(args.clean_dir, args.noisy_dir, shape=tuple(args.shape),
+                     limit=args.limit)
+    else:
+        ds = TestMaps(shape=tuple(args.shape), limit=args.limit)
     loader = DataLoader(ds, batch_size=args.batch_size, shuffle=False, num_workers=4)
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)

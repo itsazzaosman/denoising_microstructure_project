@@ -59,6 +59,18 @@ def parse_args():
     p.add_argument("--w-replace", type=float, default=0.5)
     p.add_argument("--no-misfit", action="store_true",
                    help="drop the local-misfit input channel (ablation)")
+    p.add_argument("--noise-mode", choices=["scatter", "misindex", "both"],
+                   default="both",
+                   help="which noise to train against; must match the data the "
+                        "model is evaluated on. 'scatter' forces misindex 0 and "
+                        "'misindex' forces scatter 0, so a stale flag cannot "
+                        "silently contaminate a single-effect run.")
+    p.add_argument("--scatter-deg", type=float, default=1.0)
+    p.add_argument("--misindex", type=float, default=0.05)
+    p.add_argument("--boundary-bias", type=float, default=4.0)
+    p.add_argument("--mean-tol", type=float, default=2.0,
+                   help="same-grain tolerance for the local mean, in degrees; "
+                        "raise with the scatter level (~1.6x max scatter)")
     p.add_argument("--val-fraction", type=float, default=0.02)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--num-workers", type=int, default=8)
@@ -119,7 +131,10 @@ def evaluate(model, loader, device, amp_dtype):
     res = {k: float(np.median(v)) if v else float("nan") for k, v in per_map.items()}
     res["gate_precision"] = tp / max(tp + fp, 1)
     res["gate_recall"] = tp / max(tp + fn, 1)
-    res["score"] = res["gross"] + res["all"]
+    # With no misindexing there are no corrupted pixels, so "gross" is ~0 and
+    # the score reduces to the ALL statistic -- the right selection criterion
+    # for a scatter-only run.
+    res["score"] = (0.0 if np.isnan(res["gross"]) else res["gross"]) + res["all"]
     return res
 
 
@@ -178,12 +193,20 @@ def main():
     if device.type == "cuda":
         print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
 
+    noise = dict(scatter_deg=args.scatter_deg, misindex=args.misindex,
+                 boundary_bias=args.boundary_bias)
+    if args.noise_mode == "scatter":
+        noise["misindex"] = 0.0
+    elif args.noise_mode == "misindex":
+        noise["scatter_deg"] = 0.0
+    print(f"noise mode: {args.noise_mode}  ->  {noise}", flush=True)
+
     train_set = TrainMaps(split="train", val_fraction=args.val_fraction, seed=args.seed,
-                          augment=not args.no_augment, limit=args.limit)
+                          augment=not args.no_augment, limit=args.limit, noise=noise)
     # Validation noise is fixed per map, so a change in the val score is the
     # model moving and not a different draw of noise.
     val_set = TrainMaps(split="val", val_fraction=args.val_fraction, seed=args.seed,
-                        augment=False, fixed_noise=True)
+                        augment=False, fixed_noise=True, noise=noise)
     print(f"train maps: {len(train_set)}   val maps: {len(val_set)}   "
           f"(ids {train_set.ids.min()}-{train_set.ids.max()}, all > 500)", flush=True)
 
@@ -196,6 +219,7 @@ def main():
     model = GatedOrientationUNet(base=args.base_channels,
                                  max_refine_deg=args.max_refine_deg,
                                  mean_radius=args.mean_radius,
+                                 mean_tol_deg=args.mean_tol,
                                  use_misfit=not args.no_misfit).to(device)
     print(f"parameters: {sum(p.numel() for p in model.parameters())/1e6:.2f}M", flush=True)
 

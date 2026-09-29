@@ -40110,3 +40110,19 @@ At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints/**, worker process 
 
 [2026-09-27T23:02:38.434232-04:00] Finished: checkpoints
 [2026-09-27T23:02:38.434292-04:00] All folders synced successfully.
+[2026-09-28T23:00:01.816764-04:00] Starting upload.
+[2026-09-28T23:00:01.817890-04:00] Syncing /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets -> gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/datasets
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/datasets/**, worker process 3750516 thread 18832534210368 listed 32000...
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/datasets/**, worker process 3750516 thread 18832534210368 listed 40083...
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/**, worker process 3750516 thread 18832534210368 listed 32000...
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/**, worker process 3750516 thread 18832534210368 listed 40081...
+  
+
+[2026-09-28T23:01:35.343808-04:00] Finished: datasets
+[2026-09-28T23:01:35.344310-04:00] Syncing /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints -> gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints/**, worker process 3757107 thread 10007630276416 listed 1...
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints/**, worker process 3757107 thread 10007630276416 listed 2...
+  
+
+[2026-09-28T23:01:36.913094-04:00] Finished: checkpoints
+[2026-09-28T23:01:36.913172-04:00] All folders synced successfully.

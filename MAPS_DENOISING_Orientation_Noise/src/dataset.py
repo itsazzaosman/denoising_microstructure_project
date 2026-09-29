@@ -235,3 +235,53 @@ class TestMaps(Dataset):
                 torch.from_numpy(np.ascontiguousarray(q_clean, dtype=np.float32)),
                 torch.from_numpy(np.ascontiguousarray(bad)),
                 int(self.ids[i]))
+
+
+class DirMaps(Dataset):
+    """
+    Paired (noisy, clean) maps read straight from .txt directories.
+
+    TestMaps serves the packed cache, which holds one specific noise draw. This
+    reads any pair of directories instead, so an alternative corruption -- a
+    different scatter level, say -- can be run through the model without
+    rebuilding the cache. Slower per map (text parsing), but this is inference.
+
+    The bad-pixel mask is optional: a scatter-only dataset has none, and the
+    scorers report CORRUPTED as nan rather than pretending otherwise.
+    """
+
+    def __init__(self, clean_dir, noisy_dir, shape=(128, 128), limit=0):
+        import re
+        from orientation import load_euler
+        self._load = load_euler
+        self.shape = tuple(shape)
+        mid = lambda p: (int(m.group(1)) if (m := re.search(r"map_(\d+)", p.name)) else None)
+
+        clean = {mid(f): f for f in Path(clean_dir).glob("map_*.txt") if mid(f)}
+        pairs = []
+        for f in sorted(Path(noisy_dir).glob("map_*_noisy.txt"), key=lambda p: mid(p) or 0):
+            i = mid(f)
+            if i in clean:
+                mask = Path(str(f) + ".badmask.npy")
+                pairs.append((i, clean[i], f, mask if mask.exists() else None))
+        if limit:
+            pairs = pairs[:limit]
+        if not pairs:
+            raise RuntimeError(f"no clean/noisy pairs between {clean_dir} and {noisy_dir}")
+        self.pairs = pairs
+        self.ids = np.array([p[0] for p in pairs], dtype=np.int32)
+
+    def __len__(self):
+        return len(self.pairs)
+
+    def __getitem__(self, i):
+        H, W = self.shape
+        mid, cf, nf, mf = self.pairs[i]
+        q_clean = euler_to_quat(self._load(cf).astype(np.float64)).reshape(H, W, 4)
+        q_noisy = euler_to_quat(self._load(nf).astype(np.float64)).reshape(H, W, 4)
+        bad = (np.load(mf).reshape(H, W) if mf is not None
+               else np.zeros((H, W), dtype=bool))
+        return (torch.from_numpy(np.ascontiguousarray(q_noisy, dtype=np.float32)),
+                torch.from_numpy(np.ascontiguousarray(q_clean, dtype=np.float32)),
+                torch.from_numpy(np.ascontiguousarray(bad)),
+                int(mid))

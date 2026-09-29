@@ -106,6 +106,11 @@ def main():
     p.add_argument("--n-train", type=int, default=12000,
                    help="how many training maps to pack (0 = every usable map)")
     p.add_argument("--jobs", type=int, default=16)
+    p.add_argument("--noisy-dir", default=None,
+                   help="pack this directory as the test set. Omit to pack only "
+                        "the training maps -- inference can read a noisy "
+                        "directory directly (--noisy-dir), so the test half of "
+                        "the cache is optional.")
     args = p.parse_args()
 
     n = int(np.prod(args.shape))
@@ -120,8 +125,15 @@ def main():
     print(f"train pool       : ids > {TEST_MAX_ID}, packing {len(train_paths)}")
     pack(train_paths, n, CACHE_DIR / "train_clean.npy", args.jobs, "train")
 
+    if not args.noisy_dir:
+        print("\nno --noisy-dir given: training cache only (inference reads "
+              "noisy directories directly)")
+        print(f"cache in {CACHE_DIR}")
+        return
+
     # ---- test set: clean + the exact noisy inputs MTEX was given ----
-    noisy_paths = sorted(NOISY_DIR.glob("map_*_noisy.txt"), key=lambda f: map_id(f) or 0)
+    noisy_paths = sorted(Path(args.noisy_dir).glob("map_*_noisy.txt"),
+                         key=lambda f: map_id(f) or 0)
     noisy_paths = [f for f in noisy_paths if (map_id(f) or 0) <= TEST_MAX_ID]
     ids = [map_id(f) for f in noisy_paths]
     clean_paths = [CLEAN_DIR / f"map_{i:05d}_clean_euler.txt" for i in ids]
