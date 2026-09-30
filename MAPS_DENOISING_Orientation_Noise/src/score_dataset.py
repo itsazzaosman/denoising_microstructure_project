@@ -89,7 +89,7 @@ def index_dataset(clean_dir, noisy_dir, results_dir):
     return jobs
 
 
-def score_one(job, shape):
+def score_one(job, shape, stat="median"):
     """All metrics for one map. Returns {method: {metric: value}} or None."""
     n = int(np.prod(shape))
     try:
@@ -104,12 +104,14 @@ def score_one(job, shape):
     bad = np.load(job["mask"]).ravel().astype(bool) if job["mask"] else None
     bnd = boundary_mask(q_clean, shape)
 
+    agg = np.mean if stat == "mean" else np.median
+
     def metrics(q_test):
         d = disorientation_deg(q_clean, q_test)
         return {
-            "all": float(np.median(d)),
-            "bad": float(np.median(d[bad])) if bad is not None and bad.any() else np.nan,
-            "bnd": float(np.median(d[bnd])) if bnd.any() else np.nan,
+            "all": float(agg(d)),
+            "bad": float(agg(d[bad])) if bad is not None and bad.any() else np.nan,
+            "bnd": float(agg(d[bnd])) if bnd.any() else np.nan,
             "gross": float(100.0 * (d > 10.0).mean()),
         }
 
@@ -132,8 +134,8 @@ def score_one(job, shape):
 
 
 def _worker(args):
-    job, shape = args
-    return job["id"], score_one(job, shape)
+    job, shape, stat = args
+    return job["id"], score_one(job, shape, stat)
 
 
 def aggregate(per_map, methods):
@@ -167,6 +169,16 @@ def main():
     p.add_argument("--all-maps", action="store_true",
                    help="score every map even where some methods are missing "
                         "(default: only maps where all methods ran)")
+    p.add_argument("--metric", choices=["median", "mean"], default="median",
+                   help="per-map statistic. 'median' describes the typical "
+                        "pixel and is blind to a small tail; 'mean' is what "
+                        "Atindama et al. (2023) report and exposes the boundary "
+                        "pixels a smoothing filter gets badly wrong. Methods can "
+                        "rank differently under the two.")
+    p.add_argument("--only", nargs="*", default=None,
+                   help="score only these method names, in this order")
+    p.add_argument("--exclude", nargs="*", default=None,
+                   help="skip these method names, e.g. the clean-* variants")
     p.add_argument("--csv", default=None, help="also write per-map scores here")
     args = p.parse_args()
 
@@ -174,6 +186,12 @@ def main():
     jobs = index_dataset(args.clean_dir, args.noisy_dir, args.results)
     if not jobs:
         sys.exit("no clean/noisy pairs found -- check --clean-dir and --noisy-dir")
+
+    if args.only or args.exclude:
+        keep = lambda m: ((not args.only or m in args.only)
+                          and (not args.exclude or m not in args.exclude))
+        for j in jobs:
+            j["results"] = {m: f for m, f in j["results"].items() if keep(m)}
 
     all_methods = sorted({m for j in jobs for m in j["results"]})
     if not all_methods:
@@ -200,7 +218,7 @@ def main():
     print(f"scoring with {args.jobs} workers...", flush=True)
 
     per_map = {}
-    payload = [(j, shape) for j in jobs]
+    payload = [(j, shape, args.metric) for j in jobs]
     if args.jobs > 1:
         with ProcessPoolExecutor(max_workers=args.jobs) as pool:
             for i, (mid, scores) in enumerate(pool.map(_worker, payload, chunksize=4), 1):

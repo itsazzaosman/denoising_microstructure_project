@@ -57,6 +57,19 @@ RECORDED = {
             ("U-Net",      0.258, 0.346),
         ],
     },
+    "scatter7": {
+        "label": "7° scatter",
+        "rows": [
+            ("noisy",          3.506, 3.477),
+            ("infimal conv.",  2.906, 3.057),
+            ("half-quadratic", 2.566, 3.426),
+            ("mean",           1.383, 1.526),
+            ("Kuwahara",       1.365, 1.725),
+            ("median",         0.573, 0.816),
+            ("spline",         0.568, 0.619),
+            ("U-Net",          0.317, 0.428),
+        ],
+    },
     "scatter": {
         "label": "1° scatter",
         "rows": [
@@ -96,6 +109,81 @@ def from_csv(path, metric):
     return sorted(rows, key=lambda r: -r[1])
 
 
+def compare(keys, out, metric, title):
+    """
+    One panel per noise level, shared method order and shared x-scale.
+
+    The shared scale is the point: it lets the reader see that every method's
+    error grows with noise while the gap between the U-Net and the best filter
+    widens. Separate scales per panel would hide exactly that.
+    """
+    panels = [RECORDED[k] for k in keys]
+    order = [r[0] for r in panels[0]["rows"]]          # ranking fixed by the first panel
+    span = max(max(r[1], r[2]) for pn in panels for r in pn["rows"])
+
+    fig, axes = plt.subplots(1, len(panels), sharex=True,
+                             figsize=(6.4 * len(panels), 0.62 * len(order) + 1.7))
+    axes = np.atleast_1d(axes)
+    y = np.arange(len(order))[::-1]
+    h = 0.36
+
+    for ax, pn in zip(axes, panels):
+        lut = {r[0]: (r[1], r[2]) for r in pn["rows"]}
+        all_v = np.array([lut[n][0] for n in order])
+        bnd_v = np.array([lut[n][1] for n in order])
+
+        ax.set_facecolor(SURFACE)
+        b1 = ax.barh(y + h / 2 + 0.02, all_v, height=h, color=SERIES_1,
+                     label="all pixels", zorder=3)
+        b2 = ax.barh(y - h / 2 - 0.02, bnd_v, height=h, color=SERIES_2,
+                     label="grain-boundary pixels", zorder=3)
+        for bars, vals in ((b1, all_v), (b2, bnd_v)):
+            for bar, v in zip(bars, vals):
+                ax.text(v + span * 0.012, bar.get_y() + bar.get_height() / 2,
+                        f"{v:.3f}", va="center", ha="left", fontsize=8,
+                        color=INK_SECONDARY)
+
+        ax.set_yticks(y)
+        ax.set_yticklabels(order if ax is axes[0] else [], fontsize=10,
+                           color=INK_PRIMARY)
+        ax.set_xlim(0, span * 1.16)
+        ax.set_xlabel("disorientation (degrees)", fontsize=10, color=INK_SECONDARY)
+        ax.set_title(pn["label"], fontsize=11, color=INK_PRIMARY, pad=8)
+        ax.tick_params(axis="x", colors=INK_MUTED, labelsize=9)
+        ax.tick_params(axis="y", length=0)
+        ax.xaxis.grid(True, color=GRIDLINE, linewidth=0.8, zorder=0)
+        ax.set_axisbelow(True)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        for side in ("bottom", "left"):
+            ax.spines[side].set_color(BASELINE)
+            ax.spines[side].set_linewidth(0.8)
+
+    fig.patch.set_facecolor(SURFACE)
+    leg = axes[-1].legend(loc="lower right", frameon=False, fontsize=9.5,
+                          handlelength=1.0, handleheight=0.9)
+    for t in leg.get_texts():
+        t.set_color(INK_SECONDARY)
+    if title:
+        fig.suptitle(title, fontsize=13.5, color=INK_PRIMARY, y=0.995)
+    fig.text(0.5, 0.945, f"{metric} per-pixel disorientation",
+             fontsize=10, color=INK_SECONDARY, ha="center")
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, dpi=300, facecolor=SURFACE, bbox_inches="tight")
+    print(f"wrote {out}")
+
+    hdr = "".join(f"{pn['label']:>26}" for pn in panels)
+    print(f"\n{'method':<18}{hdr}")
+    print(f"{'':<18}" + "".join(f"{'all px':>13}{'bnd px':>13}" for _ in panels))
+    print("-" * (18 + 26 * len(panels)))
+    for n in order:
+        row = "".join(f"{RECORDED[k]['rows'][[r[0] for r in RECORDED[k]['rows']].index(n)][1]:>13.3f}"
+                      f"{RECORDED[k]['rows'][[r[0] for r in RECORDED[k]['rows']].index(n)][2]:>13.3f}"
+                      for k in keys)
+        print(f"{n:<18}{row}")
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--csv", default=None, help="per-map CSV from score_dataset.py")
@@ -105,7 +193,13 @@ def main():
                    help="only labels the axis; the CSV already holds one statistic")
     p.add_argument("--out", required=True)
     p.add_argument("--title", default=None)
+    p.add_argument("--compare", nargs="*", default=None,
+                   help="two or more recorded levels to show side by side")
     args = p.parse_args()
+
+    if args.compare:
+        compare(args.compare, args.out, args.metric, args.title)
+        return
 
     if args.csv:
         rows = from_csv(args.csv, args.metric)
