@@ -105,12 +105,21 @@ def ipf_z_color(q):
     """
     Standard IPF-Z colouring for cubic m-3m.
 
-    The sample Z direction is expressed in crystal coordinates, folded into
-    the standard stereographic triangle using |components| sorted ascending,
-    then mapped to RGB with [001] red, [101] green, [111] blue.
+    The sample Z direction is expressed in crystal coordinates, then coloured
+    by ipf_rgb.
     """
     R = quat_to_matrix(q)
-    v = R[:, :, 2]                      # sample z in crystal frame
+    return ipf_rgb(R[:, :, 2])          # sample z in crystal frame
+
+
+def ipf_rgb(v):
+    """
+    Colour crystal directions v (N, 3) for cubic m-3m.
+
+    Each direction is folded into the standard stereographic triangle using
+    |components| sorted ascending, then mapped to RGB with [001] red, [101]
+    green, [111] blue.
+    """
     a = np.sort(np.abs(v), axis=1)      # a <= b <= c, folds into the triangle
     lo, mid, hi = a[:, 0], a[:, 1], a[:, 2]
 

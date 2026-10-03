@@ -125,3 +125,21 @@ maps: score plot
   datasets/clean_euler datasets/noise_scatter5 \
   --shape 128 128 --limit 500 \
   --scatter 5.0 --misindex 0 --save-mask --ang
+
+# cd /project/community/aiosman/MAPS_DENOISING_Orientation_Noise
+
+# # all 10 maps at 5° scatter
+# python src/plot_mtex_maps.py --scatter 5 --all
+
+# # all 10 maps at all three noise levels
+# for s in 5 7 9; do python src/plot_mtex_maps.py --scatter $s --all; done
+
+# # or just one map at a time
+# python src/plot_mtex_maps.py --scatter 5 --maps 3
+
+# # optional: zoom into a 48×48 region (rows 40–88, columns 40–88)
+# python src/plot_mtex_maps.py --scatter 5 --maps 3 --crop 40 40 48 48
+
+
+#python src/plot_mtex_maps.py --ang-dir datasets/noise_scatter9/ang_files \
+  --results datasets/mtex_out_scatter9_nograins --out figures/mtex_maps/scatter9_nograins --all
