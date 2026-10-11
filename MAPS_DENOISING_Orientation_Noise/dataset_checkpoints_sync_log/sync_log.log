@@ -46502,3 +46502,58 @@ Copying file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/check
 Average throughput: 272.1MiB/s
 [2026-10-02T23:01:31.501310-04:00] Finished: checkpoints
 [2026-10-02T23:01:31.501369-04:00] All folders synced successfully.
+[2026-10-05T23:00:02.003600-04:00] Starting upload.
+[2026-10-05T23:00:02.004215-04:00] ERROR: Source folder does not exist: /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets
+[2026-10-05T23:00:02.004812-04:00] Syncing /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints -> gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints/**, worker process 1914254 thread 11281163749184 listed 1...
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints/**, worker process 1914254 thread 11281163749184 listed 12...
+Copying file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints/history.json to gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints/history.json
+  
+.
+[2026-10-05T23:00:04.237020-04:00] Finished: checkpoints
+[2026-10-05T23:00:04.237100-04:00] Sync finished with errors.
+[2026-10-06T23:00:02.090646-04:00] Starting upload.
+[2026-10-06T23:00:02.090727-04:00] ERROR: Source folder does not exist: /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets
+[2026-10-06T23:00:02.091939-04:00] Syncing /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints -> gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints/**, worker process 3009485 thread 10951288903488 listed 1...
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints/**, worker process 3009485 thread 10951288903488 listed 12...
+  
+
+[2026-10-06T23:00:03.965494-04:00] Finished: checkpoints
+[2026-10-06T23:00:03.965557-04:00] Sync finished with errors.
+[2026-10-07T23:00:01.960805-04:00] Starting upload.
+[2026-10-07T23:00:01.960907-04:00] ERROR: Source folder does not exist: /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets
+[2026-10-07T23:00:01.962901-04:00] Syncing /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints -> gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints/**, worker process 3101053 thread 16349825062720 listed 1...
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints/**, worker process 3101053 thread 16349825062720 listed 12...
+  
+
+[2026-10-07T23:00:04.638144-04:00] Finished: checkpoints
+[2026-10-07T23:00:04.638206-04:00] Sync finished with errors.
+[2026-10-08T23:00:01.963916-04:00] Starting upload.
+[2026-10-08T23:00:01.964409-04:00] ERROR: Source folder does not exist: /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets
+[2026-10-08T23:00:01.965226-04:00] Syncing /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints -> gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints/**, worker process 2909237 thread 15995915130688 listed 1...
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints/**, worker process 2909237 thread 15995915130688 listed 12...
+  
+
+[2026-10-08T23:00:04.109210-04:00] Finished: checkpoints
+[2026-10-08T23:00:04.109274-04:00] Sync finished with errors.
+[2026-10-09T23:00:02.068306-04:00] Starting upload.
+[2026-10-09T23:00:02.070498-04:00] ERROR: Source folder does not exist: /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets
+[2026-10-09T23:00:02.071175-04:00] Syncing /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints -> gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints/**, worker process 2083005 thread 19158587348800 listed 1...
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints/**, worker process 2083005 thread 19158587348800 listed 12...
+  
+
+[2026-10-09T23:00:04.226719-04:00] Finished: checkpoints
+[2026-10-09T23:00:04.226780-04:00] Sync finished with errors.
+[2026-10-10T23:00:02.409617-04:00] Starting upload.
+[2026-10-10T23:00:02.410199-04:00] ERROR: Source folder does not exist: /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets
+[2026-10-10T23:00:02.411236-04:00] Syncing /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints -> gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints/**, worker process 924287 thread 9753739585344 listed 1...
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints/**, worker process 924287 thread 9753739585344 listed 12...
+  
+
+[2026-10-10T23:00:04.910329-04:00] Finished: checkpoints
+[2026-10-10T23:00:04.910411-04:00] Sync finished with errors.

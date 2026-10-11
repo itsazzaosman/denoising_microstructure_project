@@ -4,16 +4,26 @@ BUCKET := gs://cmu-gpucloud-aiosman
 # PROJ  : the experiment folder
 # MAP   : which map to look at, e.g. `make score MAP=00002`
 # SHAPE : grid size of the map, rows then columns
+# NOISE : which noise set to use, e.g. `make score-all NOISE=scatter7`. It picks
+#         the noisy maps (datasets/noise_<NOISE>), the MTEX + model outputs
+#         (datasets/mtex_out_<NOISE>) and the model (checkpoints/checkpoints_<NOISE>).
 PROJ  := MAPS_DENOISING_Orientation_Noise
 MAP   := 00001
 SHAPE := 128 128
+NOISE := scatter5
 
 # The scoring scripts run on plain numpy, but the torch utilities need the
 # `ebsd` env -- base has no torch.
 EBSD_PY := $(HOME)/miniconda3/envs/ebsd/bin/python
 
-CLEAN := $(PROJ)/datasets/clean_euler/map_$(MAP)_clean_euler.txt
-NOISY := $(PROJ)/datasets/noisy_mis05/map_$(MAP)_clean_euler_noisy.txt
+CLEAN_DIR := $(PROJ)/datasets/clean_euler
+NOISY_DIR := $(PROJ)/datasets/noise_$(NOISE)
+RESULTS   := $(PROJ)/datasets/mtex_out_$(NOISE)
+CKPT      := $(PROJ)/checkpoints/checkpoints_$(NOISE)/best.pth
+FIGURES   := $(PROJ)/figures/$(NOISE)
+
+CLEAN := $(CLEAN_DIR)/map_$(MAP)_clean_euler.txt
+NOISY := $(NOISY_DIR)/map_$(MAP)_clean_euler_noisy.txt
 MASK  := $(NOISY).badmask.npy
 
 
@@ -41,7 +51,7 @@ upload:
 download:
 	gcloud storage rsync -r $(BUCKET)/DATASET_CHECKPOINTS/datasets ./DATASET_CHECKPOINTS/datasets
 
-# Print the numbers: how far each denoised map in mtex_out/ sits from the
+# Print the numbers: how far each denoised map in $(RESULTS) sits from the
 # truth. Use this when you want to RANK the filters -- it gives the median
 # error per filter, split out over the misindexed pixels (--mask) and the
 # grain boundaries, so you can see whether a filter wins overall or only in
@@ -51,7 +61,7 @@ score:
 	  --clean  $(CLEAN) \
 	  --noisy  $(NOISY) \
 	  --mask   $(MASK) \
-	  --results $(PROJ)/mtex_out/ \
+	  --results $(RESULTS)/ \
 	  --shape  $(SHAPE)
 
 # Draw the pictures into figures/: maps_ipf.png (IPF-Z colour maps, one panel
@@ -60,25 +70,29 @@ score:
 # to SEE what a filter did to the grain boundaries and the speckle, rather
 # than just read a median. Note it takes no --mask.
 plot:
+	mkdir -p $(FIGURES)
 	python $(PROJ)/src/plot_maps.py \
 	  --clean  $(CLEAN) \
 	  --noisy  $(NOISY) \
-	  --results $(PROJ)/mtex_out/ \
+	  --results $(RESULTS)/ \
 	  --shape  $(SHAPE) \
-	  --out    $(PROJ)/figures/
+	  --out    $(FIGURES)/
 
 # The same table, but aggregated over every map MTEX has finished, not just
 # one. Use this for any claim you intend to defend: single-map medians wobble
 # between maps, so the (IQR) column tells you whether a gap between two methods
 # is real. This is the number the model has to beat.
+# The CSV is named scores_median.csv so it does not overwrite the older,
+# mean-based figures/scatter5/scores.csv.
 score-all:
+	mkdir -p $(FIGURES)
 	python $(PROJ)/src/score_dataset.py \
-	  --clean-dir $(PROJ)/datasets/clean_euler \
-	  --noisy-dir $(PROJ)/datasets/noisy_mis05 \
-	  --results   $(PROJ)/mtex_out/ \
+	  --clean-dir $(CLEAN_DIR) \
+	  --noisy-dir $(NOISY_DIR) \
+	  --results   $(RESULTS)/ \
 	  --shape     $(SHAPE) \
 	  --jobs      8 \
-	  --csv       $(PROJ)/figures/scores.csv
+	  --csv       $(FIGURES)/scores_median.csv
 
 # Check the orientation maths the model will be built on against the numpy
 # reference. Run it after touching anything in orientation_torch.py.
@@ -101,12 +115,15 @@ train-gpu:
 	cd $(PROJ)/src && sbatch --job-name=ebsd_orient_gpu --partition=preempt \
 	  --qos=preempt_qos --time=2-00:00:00 train_model.sh --resume auto
 
-# Predict the held-out maps and drop the results into mtex_out/ as
+# Predict the held-out maps and drop the results into $(RESULTS) as
 # <stem>__unet.txt, so score-all compares them against the filters using the
 # same code path. Both job scripts already do this when training ends.
 infer:
 	$(EBSD_PY) $(PROJ)/src/inference.py \
-	  --checkpoint $(PROJ)/checkpoints/best.pth
+	  --checkpoint $(CKPT) \
+	  --clean-dir  $(CLEAN_DIR) \
+	  --noisy-dir  $(NOISY_DIR) \
+	  --out        $(RESULTS)
 
 watch:
 	squeue -u $(USER) -o "%.10i %.10P %.20j %.3t %.10M %.6C %.22R"

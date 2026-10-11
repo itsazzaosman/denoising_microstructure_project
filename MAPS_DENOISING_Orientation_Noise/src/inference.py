@@ -3,14 +3,19 @@
 Run the trained model over the held-out maps and write its output in the same
 format MTEX produces.
 
-Files land in mtex_out/ named <stem>__unet.txt, so score_dataset.py picks the
-model up automatically alongside the twelve filters and scores it with exactly
-the same code. No separate metric path means no chance of the model being
-flattered by a different definition.
+Files land next to the MTEX outputs for the same noise set, named
+<stem>__unet.txt, so score_dataset.py picks the model up automatically
+alongside the twelve filters and scores it with exactly the same code. No
+separate metric path means no chance of the model being flattered by a
+different definition.
 
 Usage
 -----
-    python inference.py --checkpoint ../checkpoints/best.pth --limit 500
+    python inference.py --checkpoint ../checkpoints/checkpoints_scatter5/best.pth \
+        --clean-dir ../datasets/clean_euler --noisy-dir ../datasets/noise_scatter5
+
+--out defaults to the matching MTEX folder: datasets/noise_scatter5 ->
+datasets/mtex_out_scatter5.
 """
 
 import argparse
@@ -25,14 +30,16 @@ from architecture import GatedOrientationUNet, boundary_mask
 from dataset import DirMaps, TestMaps
 from orientation_torch import disorientation_deg, quat_to_euler
 
-ROOT = Path(__file__).resolve().parent.parent
 HEADER = "EulerAngles_0 EulerAngles_1 EulerAngles_2"
 
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--checkpoint", default=str(ROOT / "checkpoints/best.pth"))
-    p.add_argument("--out", default=str(ROOT / "mtex_out"))
+    p.add_argument("--checkpoint", required=True,
+                   help="e.g. checkpoints/checkpoints_scatter5/best.pth")
+    p.add_argument("--out", default=None,
+                   help="output folder; defaults to the MTEX folder matching "
+                        "--noisy-dir (noise_X -> mtex_out_X)")
     p.add_argument("--method-name", default="unet",
                    help="suffix after __ in the output filename; this is the "
                         "name the scoring table will show")
@@ -46,7 +53,14 @@ def main():
     p.add_argument("--noisy-dir", default=None)
     args = p.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if args.out is None:
+        noisy = Path(args.noisy_dir) if args.noisy_dir else None
+        if noisy is None or not noisy.name.startswith("noise_"):
+            p.error("pass --out, or a --noisy-dir named noise_<set> so the "
+                    "output folder mtex_out_<set> can be derived from it")
+        args.out = str(noisy.parent / noisy.name.replace("noise_", "mtex_out_", 1))
+
+    device =torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ck = torch.load(args.checkpoint, map_location=device, weights_only=False)
     targs = ck.get("args", {})
     model = GatedOrientationUNet(
@@ -121,14 +135,12 @@ def main():
     print("=" * 74)
     print(f"{'':<22}{'ALL':>12}{'CORRUPTED':>12}{'BOUNDARY':>12}{'>10 deg':>12}")
     print("-" * 74)
-    print(f"{'noisy input':<22}{med['in_all']:>12.3f}{'42.3':>12}{'':>12}"
+    print(f"{'noisy input':<22}{med['in_all']:>12.3f}{'':>12}{'':>12}"
           f"{med['in_gross']:>12.2f}")
     print(f"{args.method_name:<22}{med['all']:>12.3f}{med['bad']:>12.3f}"
           f"{med['bnd']:>12.3f}{med['gross']:>12.2f}")
-    print(f"{'clean-spline (MTEX)':<22}{0.026:>12.3f}{0.032:>12.3f}"
-          f"{0.029:>12.3f}{1.48:>12.2f}")
     print("=" * 74)
-    print("\nnow run:  make score-all    (scores this against every MTEX method)")
+    print("\nnow run:  make score-all NOISE=<set>   (scores this against every MTEX method)")
 
 
 if __name__ == "__main__":

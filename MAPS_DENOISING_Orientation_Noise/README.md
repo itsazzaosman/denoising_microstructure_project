@@ -153,25 +153,38 @@ pixel, so the bare variants leave `CORRUPTED` at 42 deg.
 ## Running it
 
 The `make` targets live in the parent folder's `Makefile`
-(`/project/community/aiosman/Makefile`), so run them from there. Some of
-them still point at old paths; see [Out-of-date paths](#out-of-date-paths).
+(`/project/community/aiosman/Makefile`), so run them from there, or from
+here with `make -C ..`.
+
+`NOISE` picks the noise set (default `scatter5`). It sets the noisy maps
+(`datasets/noise_<NOISE>`), the folder holding the MTEX and model outputs
+(`datasets/mtex_out_<NOISE>`), the model (`checkpoints/checkpoints_<NOISE>/best.pth`)
+and the figures folder (`figures/<NOISE>/`).
 
 ```bash
-make score                # single-map table (fast, for sanity checks)
-make score-all            # aggregated over every map MTEX has finished
-make plot                 # IPF and error maps -> figures/
-make check-orientation    # verify the orientation maths against numpy
+make score NOISE=scatter7        # single-map table (fast, for sanity checks)
+make score-all NOISE=scatter7    # every map MTEX has finished -> figures/scatter7/scores_median.csv
+make plot NOISE=scatter7         # IPF and error maps -> figures/scatter7/
+make infer NOISE=scatter7        # model predictions -> datasets/mtex_out_scatter7/*__unet.txt
+make check-orientation           # verify the orientation maths against numpy
 ```
 
 Training:
 
 ```bash
 python src/prepare_cache.py --n-train 12000    # once, ~1 min
-sbatch src/train_model.sh      --resume auto   # GPU,  checkpoints_gpu/
-sbatch src/train_model_cpu.sh  --resume auto   # CPU,  checkpoints/
-python src/inference.py --checkpoint checkpoints/best.pth
-make score-all
+CKPT_DIR=$PWD/checkpoints/<run-name> NOISE=scatter7 \
+  sbatch src/train_model.sh --noise-mode scatter --scatter-deg 7 --resume auto
 ```
+
+`NOISE` only chooses the test set scored at the end of the job; the training
+noise comes from the `train.py` flags, so keep the two in step. Swap in
+`train_model_cpu.sh` for the CPU version.
+
+**Always set `CKPT_DIR` to a new folder.** The CPU script's default is
+`checkpoints/` itself, where it would overwrite `checkpoints/history.json`
+(the only record of the misindexing run); the GPU default is `checkpoints_gpu/`.
+With `--resume auto`, pointing at an existing run's folder continues that run.
 
 Both job scripts checkpoint every epoch and take `--resume auto`, so a
 preemption or a wall-clock kill costs at most the epoch in flight.
@@ -308,22 +321,19 @@ can continue from it. Each `history.json` is a list with one entry per epoch:
 | `../logs/` | SLURM output. `sc5_*`, `sc7_*` and `sc9_*` are the three scatter training runs. |
 | `../.gitignore` | Why `datasets/`, `checkpoints/`, `*.pth` and `*.npy` are not in git. |
 
-## Out-of-date paths
+## Old paths
 
-The scatter-only data lives in new folders, but several defaults still point
-at the old layout:
+The make targets, both job scripts and `inference.py` were moved to the
+`NOISE`-based layout on 2026-10-11 (see [Running it](#running-it)). For
+reading older logs:
 
-- `datasets/noisy_mis05/` and `mtex_out/` no longer exist. `make score`,
-  `make plot`, `make score-all`, both `train_model*.sh` scripts and the default
-  `--out` of `inference.py` still use them. Pass
-  `--noisy-dir datasets/noise_scatterN` and
-  `--results datasets/mtex_out_scatterN` explicitly.
-- The scatter runs were trained with `CKPT_DIR=.../checkpoints_scatterN` and
-  then moved into `checkpoints/`. Point `--checkpoint` at
-  `checkpoints/checkpoints_scatterN/best.pth`, not `checkpoints/best.pth`.
+- `datasets/noisy_mis05/` and `mtex_out/` belonged to the deleted
+  1 deg + 5% misindexing set.
 - The inference step at the end of all three scatter jobs failed because
   `datasets/cache/test_clean.npy` does not exist (see `../logs/sc*_*.err`).
-  Re-run it with `--clean-dir datasets/clean_euler --noisy-dir datasets/noise_scatterN`.
+  The job scripts now read `datasets/noise_<NOISE>` directly instead.
+- `inference.py --out` now defaults to the MTEX folder matching
+  `--noisy-dir` (`noise_X` -> `mtex_out_X`), and `--checkpoint` is required.
 
 ## Gotchas worth knowing
 
