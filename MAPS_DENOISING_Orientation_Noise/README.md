@@ -263,6 +263,7 @@ MAPS_DENOISING_Orientation_Noise/
 | `noise_scatter7/` | Same, scatter up to 7 deg (3.5 deg average). | 1,000 + 1,000 | 1.7 GB |
 | `noise_scatter9/` | Same, scatter up to 9 deg (4.5 deg average). | 1,000 + 1,000 | 1.7 GB |
 | `noise_scatter<S>[_mis<M>]/` | **The test grid**: every combination of scatter max S = 1, 3, 5, 7, 9, 12, 15 deg and misindexing M = 0, 3, 6, 9% (boundary bias 4), maps 1-500 each, 28 sets (the three above are its M = 0 cells). All share seed 0, so the cells differ only in the amount of noise. List in `configs/test_grid.txt`, configs in `configs/noise/`, made by `src/make_test_grid.py`; measured input noise in `figures/test_grid/input_noise.csv`. | 28 x 2,000 | ~47 GB |
+| `noise_test_random/` | **Mixed-level test set**: maps 1-500, each with its own random level (scatter max 0-15 deg, misindexing 0-10%, boundary bias 4, seed 2000), the same ranges as training; one overall headline number next to the grid. Levels in `levels.csv`; input median error 4.0 deg, 4.95% misindexed. Scored by `eval_model.sh` by default. | 2,000 | 1.7 GB |
 | `mtex_out_scatter5/` | MTEX filter outputs for `noise_scatter5`, maps 1-10 only. | 120 | 56 MB |
 | `mtex_out_scatter7/` | Same for `noise_scatter7`. | 120 | 56 MB |
 | `mtex_out_scatter9/` | Same for `noise_scatter9`. | 120 | 56 MB |

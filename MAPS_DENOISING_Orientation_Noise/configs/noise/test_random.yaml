@@ -1,0 +1,20 @@
+# Test set datasets/noise_test_random: maps 1-500, each with its OWN random
+# noise level from the same ranges as training and validation. One overall
+# "headline" number, next to the 28 fixed-level sets of the test grid. The
+# level each map got is in levels.csv there.
+#
+#   make noise NOISE=test_random
+description: Test maps 1-500, scatter max uniform in 0-15 deg, misindexing uniform in 0-10%, boundary-biased, one random level per map.
+
+noise:                  # add_ebsd_noise.py settings
+  shape: [128, 128]
+  start: 0              # first map (0 = map_00001)
+  limit: 500            # maps 1-500 are the test set
+  random_levels: true   # per map: scatter max ~ U[0, scatter], misindex ~ U[0, misindex]
+  scatter: 15.0
+  misindex: 0.10
+  boundary_bias: 4.0
+  seed: 2000            # map i uses 2000 + i: not used by any other set (grid 0-499, val 1000-1499)
+  save_mask: true
+  ang: true             # .ang copies for MTEX
+  step: 1.0

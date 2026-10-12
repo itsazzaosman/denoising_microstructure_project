@@ -10,7 +10,8 @@
 #SBATCH --output=/project/community/aiosman/logs/orient_eval_%j.out
 #SBATCH --error=/project/community/aiosman/logs/orient_eval_%j.err
 
-# Runs a trained model over every test set in configs/test_grid.txt and scores
+# Runs a trained model over every test set in configs/test_grid.txt, plus the
+# mixed-level set test_random (one random level per map), and scores
 # it against everything else already in each set's results folder (MTEX
 # filters, other runs). One GPU job, so nothing is predicted on a CPU.
 #
@@ -31,7 +32,7 @@ PYTHON="$HOME/miniconda3/envs/ebsd/bin/python"
 CKPT="$EXP/checkpoints/runs/$RUN/best.pth"
 [[ -f "$CKPT" ]] || { echo "ERROR: no checkpoint at $CKPT" >&2; exit 1; }
 nvidia-smi || { echo "ERROR: no GPU in this allocation" >&2; exit 1; }
-SETS="${SETS:-$(cat "$EXP/configs/test_grid.txt")}"
+SETS="${SETS:-$(cat "$EXP/configs/test_grid.txt") test_random}"
 
 echo "Job started: $(date) on $(hostname)   run $RUN"
 cd "$EXP/src"
