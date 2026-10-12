@@ -96,6 +96,9 @@ def parse_args():
     p.add_argument("--num-workers", type=int, default=8)
     p.add_argument("--no-augment", action="store_true")
     p.add_argument("--no-amp", action="store_true")
+    p.add_argument("--allow-cpu", action="store_true",
+                   help="debugging only: let a run start without a GPU. Real "
+                        "training runs on a GPU, never on CPU")
     p.add_argument("--resume", default="", help="checkpoint path, or 'auto' for last.pth")
     p.add_argument("--limit", type=int, default=0, help="debug: cap training maps")
     p.add_argument("--checkpoints-dir", default=str(ROOT / "checkpoints"))
@@ -207,6 +210,10 @@ def main():
               f"{args.num_workers} loader workers", flush=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if device.type != "cuda" and not args.allow_cpu:
+        raise SystemExit("no GPU visible: training runs on a GPU only. Submit "
+                         "train_model.sh (it requests --gres=gpu:1); pass "
+                         "--allow-cpu only for a quick debug run.")
     amp_dtype = None
     if not args.no_amp and device.type == "cuda":
         amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16

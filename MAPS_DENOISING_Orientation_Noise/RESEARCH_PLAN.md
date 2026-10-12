@@ -121,26 +121,26 @@ If one fails, report it. "Learning helps mainly with misindexing and
 boundaries" is still a publishable, honest result. From the scatter-only
 numbers, expect this.
 
-### Step 2 — Build the test sets (MUST)
+### Step 2 — Build the test sets (MUST) — done 2026-10-12
 
 **Why:** problems 6 and 7. We need realistic levels and both noise types.
 
-Core grid = 3 scatter levels × 2 misindexing levels = **6 test sets**:
+Full grid = 7 scatter levels × 4 misindexing levels = **28 test sets**, maps
+1–500 each, boundary bias 4 (decided 2026-10-12, replacing the 6-set grid):
 
-| | misindex 0% | misindex 5% (boundary bias 4) |
-|---|---|---|
-| scatter max 1° (≈0.5° mean, realistic) | A | B |
-| scatter max 5° (≈2.5° mean, poor scan) | C (exists) | D |
-| scatter max 9° (≈4.5° mean, stress test) | E (exists) | F |
+- scatter max 1, 3, 5, 7, 9, 12, 15° (1° = good scan; 15° = grains only just
+  visible, the worst level that can still be denoised)
+- misindexing 0, 3, 6, 9% (0% keeps the scatter-only results, including the
+  existing scatter5/7/9 sets)
 
-- [ ] Generate with `src/add_ebsd_noise.py --scatter S --misindex M
-  --boundary-bias 4 --save-mask --ang --seed <fixed>` on maps 1–500. Use a
-  different fixed seed per set and record it.
-- [ ] Keep `noise_scatter7` as an extra point for the error-vs-noise plot.
-- [ ] Make a **tuning set** for the baselines: maps 501–520 with the same 6
-  noise settings. These are never used for testing.
-
-**Done when:** 6 folders × 500 maps, each with `.txt`, `.badmask.npy` and `.ang`.
+- [x] Configs written by `src/make_test_grid.py` (`configs/noise/`,
+  list in `configs/test_grid.txt`); sets generated in `datasets/noise_<name>/`.
+- [x] **One shared seed (0)** for every set: a paired, factorial design where
+  two cells differ only in the amount of noise. State this in the Methods.
+- [x] Input noise of every set measured: `figures/test_grid/input_noise.csv`.
+- [x] Training and validation range widened to scatter 0–15° to cover the grid.
+- [ ] Make a **tuning set** for the baselines: maps 501–520 at the grid
+  settings. These are never used for testing.
 
 ### Step 3 — Fair baselines (MUST)
 

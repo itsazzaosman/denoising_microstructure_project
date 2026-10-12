@@ -232,6 +232,8 @@ MAPS_DENOISING_Orientation_Noise/
 | `orientation_torch.py` | The same maths in torch, batched and differentiable, which the model is built on. Adds the 6D rotation representation, `disorientation_loss` (bounded gradient at zero error), slerp, and the edge-preserving local mean and misfit used as model inputs. `--self-test` checks it all against `orientation.py`. |
 | `add_ebsd_noise.py` | The noise model: scatter plus misindexing, with optional bias toward grain boundaries. Takes one map or a whole folder (`--limit`, `--start`). `--save-mask` writes the `.badmask.npy` files and `--ang` writes the `.ang` files MTEX reads. Created `datasets/noise_scatter*/`. |
 | `make_splits.py` | Divides `datasets/clean_euler` into test (1-500), val (501-1000) and train (1001-40000), leaving out the two broken maps. Writes `configs/splits/*.txt` and the symlink folders in `datasets/splits/`. |
+| `make_test_grid.py` | Defines the test grid and writes one noise config per set plus `configs/test_grid.txt`. |
+| `summarize_test_grid.py` | Measures the input noise of every test set -> `figures/test_grid/input_noise.csv`. |
 | `check_noise.py` | Measures the noise the model trains and validates on (scatter level, misindexed %, boundary bias as realised) and draws examples -> `figures/noise_check/`. |
 | `prepare_cache.py` | Packs the clean maps with id > 500 into `datasets/cache/train_clean.npy` (default: the first 12,000 usable ones). With `--noisy-dir` it also packs a test set (`test_*.npy`); that has not been done for the scatter sets. |
 | `dataset.py` | PyTorch datasets. `TrainMaps` reads the cache and adds fresh noise on every access. `TestMaps` reads the packed test cache. `DirMaps` reads any clean/noisy folder pair straight from `.txt`, so it needs no cache. |
@@ -247,7 +249,8 @@ MAPS_DENOISING_Orientation_Noise/
 | `verify_orientation_noise.py` | Checks DREAM.3D's own "Add Orientation Noise" filter: how big the noise is, and whether it is applied per pixel or per grain. |
 | `sync_to_gcs.py` | Nightly backup: `gcloud storage rsync` of `datasets/` and `checkpoints/` to `gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS`. It never deletes from the bucket, and a lock file stops two runs overlapping. Cron runs it at 23:00 and appends its output to `dataset_checkpoints_sync_log/sync_log.log`. |
 | `train_model.sh` | SLURM job: trains on 1 GPU, then runs inference and `score_dataset.py`. Arguments after the script name are passed to `train.py`; `CKPT_DIR` sets the checkpoint folder (default `checkpoints_gpu/`). |
-| `train_model_cpu.sh` | SLURM job: CPU version of `train_model.sh` (32 cores, no AMP). Default checkpoint folder is `checkpoints/`; `METHOD` sets the output method name. |
+| `eval_model.sh` | SLURM job (1 GPU): runs a trained run (`RUN=<config name>`) over every test set and scores each one against whatever else is in its results folder. |
+| `train_model_cpu.sh` | SLURM job: CPU version of `train_model.sh` (32 cores, no AMP). Default checkpoint folder is `checkpoints/`; `METHOD` sets the output method name. **Not used any more: training runs on a GPU only, and `train.py` refuses to start without one.** |
 | `__pycache__/` | Python bytecode. Safe to delete. |
 
 ### `datasets/` -- data
@@ -258,6 +261,7 @@ MAPS_DENOISING_Orientation_Noise/
 | `noise_scatter5/` | Maps 1-500 with scatter up to 5 deg (2.5 deg average) and no misindexing. | 1,000 + 1,000 in `ang_files/` | 1.7 GB |
 | `noise_scatter7/` | Same, scatter up to 7 deg (3.5 deg average). | 1,000 + 1,000 | 1.7 GB |
 | `noise_scatter9/` | Same, scatter up to 9 deg (4.5 deg average). | 1,000 + 1,000 | 1.7 GB |
+| `noise_scatter<S>[_mis<M>]/` | **The test grid**: every combination of scatter max S = 1, 3, 5, 7, 9, 12, 15 deg and misindexing M = 0, 3, 6, 9% (boundary bias 4), maps 1-500 each, 28 sets (the three above are its M = 0 cells). All share seed 0, so the cells differ only in the amount of noise. List in `configs/test_grid.txt`, configs in `configs/noise/`, made by `src/make_test_grid.py`; measured input noise in `figures/test_grid/input_noise.csv`. | 28 x 2,000 | ~47 GB |
 | `mtex_out_scatter5/` | MTEX filter outputs for `noise_scatter5`, maps 1-10 only. | 120 | 56 MB |
 | `mtex_out_scatter7/` | Same for `noise_scatter7`. | 120 | 56 MB |
 | `mtex_out_scatter9/` | Same for `noise_scatter9`. | 120 | 56 MB |

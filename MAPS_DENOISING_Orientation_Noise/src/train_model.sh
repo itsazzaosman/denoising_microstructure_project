@@ -40,7 +40,7 @@ mkdir -p "$PROJECT_DIR/logs"
 [[ -x "$PYTHON" ]] || { echo "ERROR: no python at $PYTHON" >&2; exit 1; }
 
 echo "Job started: $(date) on $(hostname)"
-nvidia-smi || true
+nvidia-smi || { echo "ERROR: no GPU in this allocation; training runs on a GPU only" >&2; exit 1; }
 # CONFIG names an experiment: configs/train/<CONFIG>.yaml (or a path to a YAML
 # file) holding every train.py setting. It also names the checkpoint folder,
 # checkpoints/runs/<CONFIG>, and its `test_set:` picks the maps scored at the
@@ -55,6 +55,9 @@ if [[ -n "${CONFIG:-}" ]]; then
     TRAIN_ARGS=(--config "$CONFIG")
     METHOD="${METHOD:-$(basename "$CONFIG" .yaml)}"   # name of the model in the score table
     CKPT_DIR="${CKPT_DIR:-$PROJECT_DIR/MAPS_DENOISING_Orientation_Noise/checkpoints/runs/$(basename "$CONFIG" .yaml)}"
+    # Training curves go in the run's own folder, so runs in parallel do not
+    # overwrite each other's figures/training_curves.png.
+    TRAIN_ARGS+=(--figures-dir "$CKPT_DIR")
     NOISE="${NOISE:-$("$PYTHON" -c 'import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))["test_set"])' "$CONFIG")}"
 else
     TRAIN_ARGS=(--epochs 40 --batch-size 16 --base-channels 32)

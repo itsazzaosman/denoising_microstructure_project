@@ -70,7 +70,7 @@ def summarise(rows, key):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--n-train", type=int, default=400, help="training maps to sample")
-    p.add_argument("--scatter", type=float, default=9.0)
+    p.add_argument("--scatter", type=float, default=15.0)
     p.add_argument("--misindex", type=float, default=0.10)
     p.add_argument("--boundary-bias", type=float, default=4.0)
     p.add_argument("--val-clean-dir", default=str(ROOT / "datasets/splits/val/clean_euler"))

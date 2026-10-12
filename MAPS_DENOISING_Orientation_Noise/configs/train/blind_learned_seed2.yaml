@@ -5,13 +5,13 @@
 # Seeds 1, 2 and 3 differ only in seed; together they give the run-to-run spread.
 #
 #   CONFIG=blind_learned_seed2 sbatch src/train_model.sh --resume auto
-description: Blind model, learned neighbour weights, scatter max 0-9 deg and misindexing 0-10% per map, seed 2.
+description: Blind model, learned neighbour weights, scatter max 0-15 deg and misindexing 0-10% per map, seed 2.
 test_set: scatter5      # scored when training ends; the full test grid is scored separately
 
 train:                  # train.py settings
   # training noise: every map, every epoch, gets its own random level
   noise_mode: random
-  scatter_deg: 9.0      # scatter max ~ U[0, 9] deg
+  scatter_deg: 15.0     # scatter max ~ U[0, 15] deg, the range of the test grid
   misindex: 0.10        # misindexed fraction ~ U[0, 0.10]
   boundary_bias: 4.0    # a boundary pixel is 4x more likely to be misindexed
 

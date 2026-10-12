@@ -5,14 +5,14 @@
 #
 #   python src/add_ebsd_noise.py --config configs/noise/val_random.yaml \
 #       datasets/splits/val/clean_euler datasets/splits/val/noise_random
-description: Validation maps 501-1000, scatter max uniform in 0-9 deg, misindexing uniform in 0-10%, boundary-biased.
+description: Validation maps 501-1000, scatter max uniform in 0-15 deg, misindexing uniform in 0-10%, boundary-biased.
 
 noise:                  # add_ebsd_noise.py settings
   shape: [128, 128]
   start: 0
   limit: 0              # every map in the input folder (the 500 val maps)
   random_levels: true   # per map: scatter max ~ U[0, scatter], misindex ~ U[0, misindex]
-  scatter: 9.0
+  scatter: 15.0         # scatter max ~ U[0, 15] deg, the range of the test grid
   misindex: 0.10
   boundary_bias: 4.0    # a grain-boundary pixel is 4x more likely to be misindexed
   seed: 1000            # map i uses 1000 + i; the test sets use 0-499, so no overlap

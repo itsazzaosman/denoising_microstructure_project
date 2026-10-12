@@ -122,10 +122,10 @@ noise:
 # is slow but not unreasonably so. They write to different checkpoint dirs
 # (checkpoints/ and checkpoints_gpu/) so both can run at once.
 train-cpu:
-	cd $(PROJ)/src && sbatch train_model_cpu.sh --resume auto
+	@echo "Training runs on a GPU only (decided 2026-10-12). Use: make train-gpu CONFIG=<name>"; exit 1
 
 train-gpu:
-	cd $(PROJ)/src && sbatch --job-name=ebsd_orient_gpu --partition=preempt \
+	cd $(PROJ)/src && sbatch --job-name=$(or $(CONFIG),ebsd_orient_gpu) --partition=preempt \
 	  --qos=preempt_qos --time=2-00:00:00 train_model.sh --resume auto
 
 # Predict the held-out maps and drop the results into $(RESULTS) as

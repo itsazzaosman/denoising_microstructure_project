@@ -1,0 +1,17 @@
+# Test set datasets/noise_scatter7_mis6: maps 1-500, one cell of the test grid
+# (see src/make_test_grid.py, which wrote this file).
+#
+#   make noise NOISE=scatter7_mis6
+description: Uniform-angle scatter up to 7 deg (3.5 deg mean), 6% misindexed, boundary-biased.
+
+noise:                  # add_ebsd_noise.py settings
+  shape: [128, 128]
+  start: 0              # first map (0 = map_00001)
+  limit: 500            # maps 1-500 are the test set
+  scatter: 7.0          # max tilt angle in deg; angle is uniform in [0, max]
+  misindex: 0.06
+  boundary_bias: 4.0    # a grain-boundary pixel is 4x more likely to be misindexed
+  seed: 0               # shared by every cell of the grid: paired design
+  save_mask: true
+  ang: true             # .ang copies for MTEX
+  step: 1.0
