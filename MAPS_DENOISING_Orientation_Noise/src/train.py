@@ -36,6 +36,7 @@ from torch.utils.data import DataLoader
 from architecture import GatedOrientationUNet, boundary_mask, denoise_loss
 from dataset import DirMaps, TrainMaps
 from orientation_torch import disorientation_deg
+from plot_training import draw_curves
 from provenance import append_provenance, parse_with_config, provenance
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -115,12 +116,17 @@ def set_seed(seed):
 
 
 @torch.no_grad()
-def evaluate(model, loader, device, amp_dtype):
-    """Per-map medians, then the median across maps -- as score_dataset.py does."""
+def evaluate(model, loader, device, amp_dtype, loss_kw):
+    """Per-map medians, then the median across maps -- as score_dataset.py does.
+
+    Also the validation loss: the same denoise_loss, with the same weights, as
+    the training loss, so the two curves can be compared directly.
+    """
     model.eval()
     per_map = {"all": [], "bad": [], "bnd": [], "gross": [],
                "in_all": [], "in_gross": []}
     tp = fp = fn = 0
+    loss_sum, parts_sum, n_maps = 0.0, {}, 0
 
     for batch in loader:
         q_noisy, q_clean, bad = batch[:3]        # DirMaps adds the map id as a 4th item
@@ -135,6 +141,13 @@ def evaluate(model, loader, device, amp_dtype):
         d = disorientation_deg(out["q"].float(), q_clean)
         d_in = disorientation_deg(q_noisy, q_clean)
         bnd = boundary_mask(q_clean)
+
+        loss, parts = denoise_loss(out, q_clean, bad, bnd, **loss_kw)
+        n = q_noisy.size(0)
+        loss_sum += loss.item() * n
+        for k, v in parts.items():
+            parts_sum[k] = parts_sum.get(k, 0.0) + v * n
+        n_maps += n
 
         for b in range(d.shape[0]):
             db, bb, nb = d[b], bad[b], bnd[b]
@@ -155,45 +168,13 @@ def evaluate(model, loader, device, amp_dtype):
     res = {k: float(np.median(v)) if v else float("nan") for k, v in per_map.items()}
     res["gate_precision"] = tp / max(tp + fp, 1)
     res["gate_recall"] = tp / max(tp + fn, 1)
+    res["loss"] = loss_sum / max(n_maps, 1)
+    res["loss_parts"] = {k: v / max(n_maps, 1) for k, v in parts_sum.items()}
     # With no misindexing there are no corrupted pixels, so "gross" is ~0 and
     # the score reduces to the ALL statistic -- the right selection criterion
     # for a scatter-only run.
     res["score"] = (0.0 if np.isnan(res["gross"]) else res["gross"]) + res["all"]
     return res
-
-
-def draw_curves(history, path):
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    if not history:
-        return
-    ep = [h["epoch"] for h in history]
-    fig, ax = plt.subplots(1, 4, figsize=(19, 4))
-
-    ax[0].plot(ep, [h["train_loss"] for h in history], label="train")
-    ax[0].set_title("loss"); ax[0].set_xlabel("epoch"); ax[0].set_yscale("log")
-
-    ax[1].plot(ep, [h["val"]["all"] for h in history], label="model")
-    ax[1].axhline(history[0]["val"]["in_all"], ls="--", c="grey", label="noisy input")
-    ax[1].axhline(0.026, ls=":", c="crimson", label="clean-spline baseline")
-    ax[1].set_title("val ALL median (deg)"); ax[1].set_yscale("log"); ax[1].legend(fontsize=7)
-
-    ax[2].plot(ep, [h["val"]["gross"] for h in history], label="model")
-    ax[2].axhline(1.48, ls=":", c="crimson", label="MTEX pre-clean baseline")
-    ax[2].set_title("val >10 deg (%)"); ax[2].set_yscale("log"); ax[2].legend(fontsize=7)
-
-    ax[3].plot(ep, [h["val"]["bnd"] for h in history], label="boundary")
-    ax[3].plot(ep, [h["val"]["bad"] for h in history], label="corrupted")
-    ax[3].axhline(0.029, ls=":", c="crimson", label="baseline boundary")
-    ax[3].set_title("val median by region (deg)"); ax[3].set_yscale("log"); ax[3].legend(fontsize=7)
-
-    for a in ax:
-        a.set_xlabel("epoch"); a.grid(alpha=0.3)
-    fig.tight_layout()
-    fig.savefig(path, dpi=110)
-    plt.close(fig)
 
 
 def main():
@@ -299,8 +280,9 @@ def main():
         history = ck.get("history", [])
         print(f"resumed from {resume} at epoch {start_epoch}", flush=True)
 
-    print("\nbaseline to beat (MTEX, map 1):  ALL 0.026  CORRUPTED 0.032  "
-          "BOUNDARY 0.029  >10deg 1.48%\n", flush=True)
+    loss_kw = dict(w_bad=args.w_bad, w_bnd=args.w_bnd, w_gate=args.w_gate,
+                   w_refine=args.w_refine, w_replace=args.w_replace,
+                   kind=args.loss, eps=args.loss_eps)
 
     for epoch in range(start_epoch, args.epochs):
         model.train()
@@ -317,11 +299,7 @@ def main():
             with torch.autocast(device_type=device.type, dtype=amp_dtype,
                                 enabled=amp_dtype is not None):
                 out = model(q_noisy)
-            loss, parts = denoise_loss(out, q_clean, bad, bnd,
-                                       w_bad=args.w_bad, w_bnd=args.w_bnd,
-                                       w_gate=args.w_gate, w_refine=args.w_refine,
-                                       w_replace=args.w_replace, kind=args.loss,
-                                       eps=args.loss_eps)
+            loss, parts = denoise_loss(out, q_clean, bad, bnd, **loss_kw)
 
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
@@ -339,23 +317,25 @@ def main():
 
         scheduler.step()
         train_loss = running / max(seen, 1)
-        val = evaluate(model, val_loader, device, amp_dtype)
+        val = evaluate(model, val_loader, device, amp_dtype, loss_kw)
         dt = time.time() - t0
 
         print(f"epoch {epoch+1}/{args.epochs}  {dt/60:.1f} min  loss {train_loss:.5f}  "
               f"[{' '.join(f'{k} {v/max(step,1):.4f}' for k, v in parts_sum.items())}]",
               flush=True)
-        print(f"    val  ALL {val['all']:.4f}  CORRUPTED {val['bad']:.4f}  "
+        print(f"    val  loss {val['loss']:.5f}  ALL {val['all']:.4f}  CORRUPTED {val['bad']:.4f}  "
               f"BOUNDARY {val['bnd']:.4f}  >10deg {val['gross']:.3f}%   "
               f"gate P {val['gate_precision']:.3f} R {val['gate_recall']:.3f}",
               flush=True)
 
-        history.append({"epoch": epoch + 1, "train_loss": train_loss, "val": val,
+        history.append({"epoch": epoch + 1, "train_loss": train_loss,
+                        "train_parts": {k: v / max(step, 1) for k, v in parts_sum.items()},
+                        "val": val,
                         "lr": scheduler.get_last_lr()[0], "minutes": dt / 60,
                         "commit": prov["git"]["commit"]})
         (ckpt_dir / "history.json").write_text(json.dumps(history, indent=2))
         try:
-            draw_curves(history, fig_dir / "training_curves.png")
+            draw_curves({ckpt_dir.name: history}, fig_dir / "training_curves.png")
         except Exception as exc:
             print(f"    (curve plot failed: {exc})", flush=True)
 
