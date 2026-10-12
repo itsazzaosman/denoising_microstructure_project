@@ -1,0 +1,45 @@
+# The 7 deg scatter-only model in checkpoints/checkpoints_scatter7/.
+# Settings copied from the args saved in that run's best.pth (2026-10-11). The
+# run itself predates commit recording, so its code version is unknown.
+#
+# Re-running this file trains a fresh copy into checkpoints/runs/scatter7/:
+#   CONFIG=scatter7 sbatch src/train_model.sh --resume auto
+description: Per-level model for uniform-angle scatter up to 7 deg, no misindexing.
+test_set: scatter7      # datasets/noise_scatter7, scored when training ends
+
+train:                  # train.py settings
+  # training noise, drawn fresh for every map in every epoch
+  noise_mode: scatter   # scatter only: train.py forces misindex to 0
+  scatter_deg: 7.0
+  misindex: 0.0         # the original run stored 0.05, which scatter mode ignored
+  boundary_bias: 4.0
+
+  # model
+  kernel: mean          # fixed-tolerance local mean (before learned kernels)
+  base_channels: 32
+  max_refine_deg: 20.0  # largest correction the refine head may apply
+  mean_radius: 4        # local-mean window is (2*4+1)^2 = 9x9 pixels
+  mean_tol: 11.0        # same-grain tolerance of the local mean, ~1.6x scatter_deg
+  no_misfit: false
+
+  # optimisation
+  epochs: 40
+  batch_size: 16
+  lr: 0.0002
+  weight_decay: 0.0
+  loss: charbonnier
+  loss_eps: 1.0e-10
+  w_bad: 5.0
+  w_bnd: 2.0
+  w_gate: 1.0
+  w_refine: 5.0
+  w_replace: 0.5
+
+  # data
+  # these runs predate the train/val/test split: they trained on the old cache
+  # and carved 2% of it off for validation
+  train_cache: train_clean
+  val_noisy_dir: ""
+  val_fraction: 0.02
+  no_augment: false
+  seed: 42              # fixes the train/val split, validation noise and initial weights

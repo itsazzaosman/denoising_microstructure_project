@@ -1,0 +1,22 @@
+# Test set datasets/noise_scatter5: maps 1-500, scatter only, no misindexing.
+# These settings reproduce the existing folder exactly (checked 2026-10-11 by
+# regenerating maps 1-2 and comparing byte for byte).
+#
+# All three scatter sets use seed 0, so each map gets the same random tilt axes
+# and the same random fraction of the maximum angle at every level: the 7 and 9
+# deg sets are the 5 deg set with every tilt angle scaled by 7/5 and 9/5.
+#
+#   make noise NOISE=scatter5
+description: Uniform-angle scatter up to 5 deg (2.5 deg mean), no misindexing.
+
+noise:                  # add_ebsd_noise.py settings
+  shape: [128, 128]
+  start: 0              # first map (0 = map_00001)
+  limit: 500            # maps 1-500 are the test set; training uses 501+
+  scatter: 5.0          # max tilt angle in deg; angle is uniform in [0, max]
+  misindex: 0.0
+  boundary_bias: 1.0    # no effect without misindexing
+  seed: 0               # map i uses seed + i
+  save_mask: true
+  ang: true             # .ang copies for MTEX
+  step: 1.0             # pixel size in microns, written into the .ang header

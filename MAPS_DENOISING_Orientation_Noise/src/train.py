@@ -15,7 +15,11 @@ that is where a learned method has room to win.
 
 Outputs (under the project root):
     checkpoints/best.pth, last.pth, history.json
+    checkpoints/run_info.json     code version, config and settings of every start
     figures/training_curves.png   redrawn every epoch, safe to look at mid-run
+
+Settings can come from an experiment file: `train.py --config
+configs/train/<name>.yaml`; flags on the command line override it.
 """
 
 import argparse
@@ -30,8 +34,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from architecture import GatedOrientationUNet, boundary_mask, denoise_loss
-from dataset import TrainMaps
+from dataset import DirMaps, TrainMaps
 from orientation_torch import disorientation_deg
+from provenance import append_provenance, parse_with_config, provenance
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -44,6 +49,10 @@ def parse_args():
     p.add_argument("--weight-decay", type=float, default=0.0)
     p.add_argument("--base-channels", type=int, default=32)
     p.add_argument("--max-refine-deg", type=float, default=5.0)
+    p.add_argument("--kernel", choices=["learned", "mean"], default="learned",
+                   help="how the refinement's local average weights neighbours: "
+                        "'learned' (the network picks every weight, no tolerance to "
+                        "set) or 'mean' (fixed --mean-tol, the scatter5/7/9 runs)")
     p.add_argument("--mean-radius", type=int, default=4,
                    help="radius of the edge-preserving local mean the refine "
                         "head composes onto; 0 disables it")
@@ -59,19 +68,30 @@ def parse_args():
     p.add_argument("--w-replace", type=float, default=0.5)
     p.add_argument("--no-misfit", action="store_true",
                    help="drop the local-misfit input channel (ablation)")
-    p.add_argument("--noise-mode", choices=["scatter", "misindex", "both"],
+    p.add_argument("--noise-mode", choices=["scatter", "misindex", "both", "random"],
                    default="both",
                    help="which noise to train against; must match the data the "
                         "model is evaluated on. 'scatter' forces misindex 0 and "
                         "'misindex' forces scatter 0, so a stale flag cannot "
-                        "silently contaminate a single-effect run.")
+                        "silently contaminate a single-effect run. 'random' gives "
+                        "every training map its own level: scatter max uniform in "
+                        "[0, --scatter-deg] and misindex uniform in [0, --misindex].")
     p.add_argument("--scatter-deg", type=float, default=1.0)
     p.add_argument("--misindex", type=float, default=0.05)
     p.add_argument("--boundary-bias", type=float, default=4.0)
     p.add_argument("--mean-tol", type=float, default=2.0,
                    help="same-grain tolerance for the local mean, in degrees; "
                         "raise with the scatter level (~1.6x max scatter)")
-    p.add_argument("--val-fraction", type=float, default=0.02)
+    p.add_argument("--val-fraction", type=float, default=0.02,
+                   help="only used with --val-noisy-dir '': share of the cache "
+                        "carved off for validation (the pre-split behaviour)")
+    p.add_argument("--train-cache", default="split_train_clean",
+                   help="packed training maps in datasets/cache; 'train_clean' is "
+                        "the pre-split cache the scatter5/7/9 runs used")
+    p.add_argument("--val-clean-dir", default=str(ROOT / "datasets/splits/val/clean_euler"))
+    p.add_argument("--val-noisy-dir", default=str(ROOT / "datasets/splits/val/noise_random"),
+                   help="fixed noisy validation maps; '' carves validation out of "
+                        "the training cache instead")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--num-workers", type=int, default=8)
     p.add_argument("--no-augment", action="store_true")
@@ -80,7 +100,7 @@ def parse_args():
     p.add_argument("--limit", type=int, default=0, help="debug: cap training maps")
     p.add_argument("--checkpoints-dir", default=str(ROOT / "checkpoints"))
     p.add_argument("--figures-dir", default=str(ROOT / "figures"))
-    return p.parse_args()
+    return parse_with_config(p, "train")
 
 
 def set_seed(seed):
@@ -99,7 +119,8 @@ def evaluate(model, loader, device, amp_dtype):
                "in_all": [], "in_gross": []}
     tp = fp = fn = 0
 
-    for q_noisy, q_clean, bad in loader:
+    for batch in loader:
+        q_noisy, q_clean, bad = batch[:3]        # DirMaps adds the map id as a 4th item
         q_noisy = q_noisy.to(device, non_blocking=True)
         q_clean = q_clean.to(device, non_blocking=True)
         bad = bad.to(device, non_blocking=True)
@@ -173,7 +194,7 @@ def draw_curves(history, path):
 
 
 def main():
-    args = parse_args()
+    args, config = parse_args()
     set_seed(args.seed)
 
     # On a CPU-only allocation torch defaults to one thread per visible core,
@@ -199,16 +220,31 @@ def main():
         noise["misindex"] = 0.0
     elif args.noise_mode == "misindex":
         noise["scatter_deg"] = 0.0
+    elif args.noise_mode == "random":
+        noise["random"] = True
     print(f"noise mode: {args.noise_mode}  ->  {noise}", flush=True)
 
-    train_set = TrainMaps(split="train", val_fraction=args.val_fraction, seed=args.seed,
-                          augment=not args.no_augment, limit=args.limit, noise=noise)
-    # Validation noise is fixed per map, so a change in the val score is the
-    # model moving and not a different draw of noise.
-    val_set = TrainMaps(split="val", val_fraction=args.val_fraction, seed=args.seed,
-                        augment=False, fixed_noise=True, noise=noise)
-    print(f"train maps: {len(train_set)}   val maps: {len(val_set)}   "
-          f"(ids {train_set.ids.min()}-{train_set.ids.max()}, all > 500)", flush=True)
+    # Validation noise is fixed, so a change in the val score is the model
+    # moving and not a different draw of noise: either a saved folder of noisy
+    # maps (the split pipeline) or a fixed-seed carve from the cache (pre-split).
+    if args.val_noisy_dir:
+        train_set = TrainMaps(split="train", val_fraction=0, seed=args.seed,
+                              augment=not args.no_augment, limit=args.limit, noise=noise,
+                              cache=args.train_cache)
+        val_set = DirMaps(args.val_clean_dir, args.val_noisy_dir)
+        overlap = set(train_set.ids.tolist()) & set(val_set.ids.tolist())
+        if overlap:
+            raise SystemExit(f"{len(overlap)} validation maps are also in the training "
+                             f"cache, e.g. {sorted(overlap)[:5]}")
+    else:
+        train_set = TrainMaps(split="train", val_fraction=args.val_fraction, seed=args.seed,
+                              augment=not args.no_augment, limit=args.limit, noise=noise,
+                              cache=args.train_cache)
+        val_set = TrainMaps(split="val", val_fraction=args.val_fraction, seed=args.seed,
+                            augment=False, fixed_noise=True, noise=noise,
+                            cache=args.train_cache)
+    print(f"train maps: {len(train_set)} (ids {train_set.ids.min()}-{train_set.ids.max()})   "
+          f"val maps: {len(val_set)} (ids {val_set.ids.min()}-{val_set.ids.max()})", flush=True)
 
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
                               num_workers=args.num_workers, pin_memory=True,
@@ -220,7 +256,8 @@ def main():
                                  max_refine_deg=args.max_refine_deg,
                                  mean_radius=args.mean_radius,
                                  mean_tol_deg=args.mean_tol,
-                                 use_misfit=not args.no_misfit).to(device)
+                                 use_misfit=not args.no_misfit,
+                                 kernel=args.kernel).to(device)
     print(f"parameters: {sum(p.numel() for p in model.parameters())/1e6:.2f}M", flush=True)
 
     optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
@@ -230,6 +267,12 @@ def main():
 
     ckpt_dir = Path(args.checkpoints_dir); ckpt_dir.mkdir(parents=True, exist_ok=True)
     fig_dir = Path(args.figures_dir); fig_dir.mkdir(parents=True, exist_ok=True)
+
+    # One record per start, so a run resumed after a code change shows both commits.
+    prov = provenance(config, args)
+    append_provenance(ckpt_dir / "run_info.json", prov)
+    print(f"code: {prov['git']['commit']}"
+          + (f"   config: {config['path']}" if config else ""), flush=True)
 
     start_epoch, best_score, history = 0, float("inf"), []
     # Path("") is Path("."), which exists and is a directory -- so guard on the
@@ -301,7 +344,8 @@ def main():
               flush=True)
 
         history.append({"epoch": epoch + 1, "train_loss": train_loss, "val": val,
-                        "lr": scheduler.get_last_lr()[0], "minutes": dt / 60})
+                        "lr": scheduler.get_last_lr()[0], "minutes": dt / 60,
+                        "commit": prov["git"]["commit"]})
         (ckpt_dir / "history.json").write_text(json.dumps(history, indent=2))
         try:
             draw_curves(history, fig_dir / "training_curves.png")
@@ -310,7 +354,8 @@ def main():
 
         state = {"epoch": epoch, "model": model.state_dict(),
                  "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(),
-                 "best_score": best_score, "history": history, "args": vars(args)}
+                 "best_score": best_score, "history": history, "args": vars(args),
+                 "provenance": prov}
         torch.save(state, ckpt_dir / "last.pth")
         if val["score"] < best_score:
             best_score = val["score"]

@@ -29,6 +29,7 @@ from torch.utils.data import DataLoader
 from architecture import GatedOrientationUNet, boundary_mask
 from dataset import DirMaps, TestMaps
 from orientation_torch import disorientation_deg, quat_to_euler
+from provenance import append_provenance, provenance
 
 HEADER = "EulerAngles_0 EulerAngles_1 EulerAngles_2"
 
@@ -69,6 +70,7 @@ def main():
         mean_radius=targs.get("mean_radius", 4),
         mean_tol_deg=targs.get("mean_tol", 2.0),
         use_misfit=not targs.get("no_misfit", False),
+        kernel=targs.get("kernel", "mean"),     # runs before --kernel existed used the mean
     ).to(device)
     model.load_state_dict(ck["model"])
     model.eval()
@@ -129,6 +131,16 @@ def main():
                 written += 1
             if written % 100 < args.batch_size:
                 print(f"  {written}/{len(ds)}", flush=True)
+
+    # The maps keep MTEX's file format, so the record of which code and which
+    # checkpoint made them sits beside them instead.
+    trained_with = ck.get("provenance", {}).get("git", {}).get(
+        "commit", "unknown (trained before commits were recorded)")
+    append_provenance(outdir / f"{args.method_name}.provenance.json",
+                      {**provenance(args=args), "maps_written": written,
+                       "checkpoint": {"path": str(Path(args.checkpoint).resolve()),
+                                      "epoch": ck["epoch"] + 1,
+                                      "trained_with_commit": trained_with}})
 
     med = {k: float(np.median(v)) if v else float("nan") for k, v in stats.items()}
     print(f"\nwrote {written} maps in {time.time()-t0:.0f}s")

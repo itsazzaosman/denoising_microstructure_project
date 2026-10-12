@@ -137,26 +137,37 @@ class TrainMaps(Dataset):
         values left alone. This rearranges grain shapes without inventing any
         new crystallography.
 
+    noise: keyword arguments for corrupt(). With "random": True, every access
+    draws its own level -- scatter max uniform in [0, scatter_deg] and
+    misindex uniform in [0, misindex] -- so one model sees every noise level.
+
+    cache: which packed file in datasets/cache to read. "split_train_clean" is
+    the train split from make_splits.py; "train_clean" is the older cache the
+    scatter5/7/9 runs used.
+
     split: "train"/"val" carve a deterministic hold-out from the cached maps,
     so the val maps are never trained on and stay the same across resumes.
+    With val_fraction=0 nothing is carved (validation comes from its own
+    folder of maps instead).
     """
 
     def __init__(self, split="train", val_fraction=0.02, seed=42, augment=True,
-                 shape=(128, 128), limit=0, noise=None, fixed_noise=False):
+                 shape=(128, 128), limit=0, noise=None, fixed_noise=False,
+                 cache="split_train_clean"):
         self.shape = tuple(shape)
         self.augment = augment
         self.noise = dict(DEFAULT_NOISE if noise is None else noise)
         self.fixed_noise = fixed_noise
 
-        path = CACHE / "train_clean.npy"
+        path = CACHE / f"{cache}.npy"
         if not path.exists():
             raise RuntimeError(f"{path} missing -- run prepare_cache.py first")
         self.maps = np.load(path, mmap_mode="r")
-        ids = np.load(CACHE / "train_clean_ids.npy")
+        ids = np.load(CACHE / f"{cache}_ids.npy")
         n_total = len(ids)                       # never trust the array's shape
 
         order = np.random.default_rng(seed).permutation(n_total)
-        n_val = max(1, int(round(n_total * val_fraction)))
+        n_val = max(1, int(round(n_total * val_fraction))) if val_fraction > 0 else 0
         keep = order[:n_val] if split == "val" else order[n_val:]
         self.index = np.sort(keep)
         if limit:
@@ -180,7 +191,11 @@ class TrainMaps(Dataset):
             g = random_quats(1, rng)[0]
             q = quat_mul(q, g[None, :])          # sample rotation: RIGHT multiply
 
-        noisy, bad = corrupt(q, self.shape, rng, **self.noise)
+        noise = dict(self.noise)
+        if noise.pop("random", False):
+            noise["scatter_deg"] = rng.uniform(0.0, noise["scatter_deg"])
+            noise["misindex"] = rng.uniform(0.0, noise["misindex"])
+        noisy, bad = corrupt(q, self.shape, rng, **noise)
 
         H, W = self.shape
         q = q.reshape(H, W, 4)

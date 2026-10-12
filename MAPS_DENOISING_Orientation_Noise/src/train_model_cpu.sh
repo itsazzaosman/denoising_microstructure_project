@@ -34,6 +34,24 @@ mkdir -p "$PROJECT_DIR/logs"
 [[ -x "$PYTHON" ]] || { echo "ERROR: no python at $PYTHON" >&2; exit 1; }
 
 echo "Job started: $(date) on $(hostname)  [CPU, ${SLURM_CPUS_PER_TASK:-?} cores]"
+# CONFIG names an experiment: configs/train/<CONFIG>.yaml (or a path to a YAML
+# file) holding every train.py setting. It also names the checkpoint folder,
+# checkpoints/runs/<CONFIG>, and its `test_set:` picks the maps scored at the
+# end. Resubmitting the same CONFIG with --resume auto continues that run.
+#     CONFIG=scatter7 sbatch train_model_cpu.sh --resume auto
+# Without CONFIG the old hard-coded settings below are used.
+if [[ -n "${CONFIG:-}" ]]; then
+    CFG_DIR="$PROJECT_DIR/MAPS_DENOISING_Orientation_Noise/configs/train"
+    if [[ -f "$CONFIG" ]]; then CONFIG="$(realpath "$CONFIG")"
+    elif [[ -f "$CFG_DIR/$CONFIG.yaml" ]]; then CONFIG="$CFG_DIR/$CONFIG.yaml"
+    else echo "ERROR: no config '$CONFIG' (also looked in $CFG_DIR)" >&2; exit 1; fi
+    TRAIN_ARGS=(--config "$CONFIG")
+    METHOD="${METHOD:-$(basename "$CONFIG" .yaml)}"   # name of the model in the score table
+    CKPT_DIR="${CKPT_DIR:-$PROJECT_DIR/MAPS_DENOISING_Orientation_Noise/checkpoints/runs/$(basename "$CONFIG" .yaml)}"
+    NOISE="${NOISE:-$("$PYTHON" -c 'import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))["test_set"])' "$CONFIG")}"
+else
+    TRAIN_ARGS=(--epochs 40 --batch-size 16 --base-channels 32)
+fi
 CKPT_DIR="${CKPT_DIR:-$PROJECT_DIR/MAPS_DENOISING_Orientation_Noise/checkpoints}"
 # METHOD names the output files, so parallel variants (different
 # --mean-radius, say) can all land in mtex_out_$NOISE/ and be compared in one table.
@@ -47,7 +65,7 @@ echo "checkpoints -> $CKPT_DIR   test set -> noise_$NOISE"
 
 cd "$SCRIPT_DIR"
 
-"$PYTHON" train.py --epochs 40 --batch-size 16 --base-channels 32 \
+"$PYTHON" train.py "${TRAIN_ARGS[@]}" \
     --num-workers 8 --no-amp --checkpoints-dir "$CKPT_DIR" "$@"
 
 echo "Training finished: $(date)"

@@ -97,7 +97,7 @@ These were found by reading the code and the paper limitations side by side.
   `mean_radius`, `max_refine_deg`, `epochs`, `seed`.
 - [x] Fix the out-of-date paths listed in the README (Makefile defaults,
   `inference.py --out`).
-- [ ] Make a `configs/` file per experiment (noise settings, seed, model
+- [x] Make a `configs/` file per experiment (noise settings, seed, model
   flags) and record the git commit hash in every results file.
 
 **Done when:** `make score-all` runs end to end on restored data.
@@ -174,13 +174,13 @@ tuned.
 **Why:** problems 5, 6 and 9; Ding (train on the noise you will meet);
 Kaufmann and Martinez (repeat trainings).
 
-- [ ] **Fix the symmetry handling first.** In `local_mean_quat`, align each
+- [x] **Fix the symmetry handling first.** (Done 2026-10-11 inside the learned kernel, `aligned_neighbours`.) In `local_mean_quat`, align each
   neighbour to the centre pixel over all 24 cubic symmetry variants (the
   existing `align_to()` in `orientation_torch.py` does this), *then* apply the
   tolerance test. Also add a training augmentation that stores each pixel as
   a random symmetry variant. Re-run the toy test above. It must give the
   same error with and without random variants.
-- [ ] **Train one "blind" model** that never knows the noise level: per
+- [x] (configs written: `configs/train/blind_learned_seed1-3.yaml`; training not started) **Train one "blind" model** that never knows the noise level: per
   training map, draw scatter max uniformly from 0–9° and misindexing from
   0–10%. (`TrainMaps` currently uses fixed values. This needs a small change
   where `corrupt(...)` is called.) This is the main model. It is more useful

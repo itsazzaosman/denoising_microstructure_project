@@ -41,6 +41,24 @@ mkdir -p "$PROJECT_DIR/logs"
 
 echo "Job started: $(date) on $(hostname)"
 nvidia-smi || true
+# CONFIG names an experiment: configs/train/<CONFIG>.yaml (or a path to a YAML
+# file) holding every train.py setting. It also names the checkpoint folder,
+# checkpoints/runs/<CONFIG>, and its `test_set:` picks the maps scored at the
+# end. Resubmitting the same CONFIG with --resume auto continues that run.
+#     CONFIG=scatter7 sbatch train_model.sh --resume auto
+# Without CONFIG the old hard-coded settings below are used.
+if [[ -n "${CONFIG:-}" ]]; then
+    CFG_DIR="$PROJECT_DIR/MAPS_DENOISING_Orientation_Noise/configs/train"
+    if [[ -f "$CONFIG" ]]; then CONFIG="$(realpath "$CONFIG")"
+    elif [[ -f "$CFG_DIR/$CONFIG.yaml" ]]; then CONFIG="$CFG_DIR/$CONFIG.yaml"
+    else echo "ERROR: no config '$CONFIG' (also looked in $CFG_DIR)" >&2; exit 1; fi
+    TRAIN_ARGS=(--config "$CONFIG")
+    METHOD="${METHOD:-$(basename "$CONFIG" .yaml)}"   # name of the model in the score table
+    CKPT_DIR="${CKPT_DIR:-$PROJECT_DIR/MAPS_DENOISING_Orientation_Noise/checkpoints/runs/$(basename "$CONFIG" .yaml)}"
+    NOISE="${NOISE:-$("$PYTHON" -c 'import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))["test_set"])' "$CONFIG")}"
+else
+    TRAIN_ARGS=(--epochs 40 --batch-size 16 --base-channels 32)
+fi
 CKPT_DIR="${CKPT_DIR:-$PROJECT_DIR/MAPS_DENOISING_Orientation_Noise/checkpoints_gpu}"
 # NOISE picks the test set scored at the end (datasets/noise_$NOISE). It must
 # match the training noise passed to train.py, e.g.
@@ -52,12 +70,12 @@ echo "checkpoints -> $CKPT_DIR   test set -> noise_$NOISE"
 
 cd "$SCRIPT_DIR"
 
-"$PYTHON" train.py --epochs 40 --batch-size 16 --base-channels 32 --num-workers 8 --checkpoints-dir "$CKPT_DIR" "$@"
+"$PYTHON" train.py "${TRAIN_ARGS[@]}" --num-workers 8 --checkpoints-dir "$CKPT_DIR" "$@"
 
 echo "Training finished: $(date)"
 
 # Write the held-out predictions and score them against every MTEX filter.
-"$PYTHON" inference.py --method-name unet-gpu --checkpoint "$CKPT_DIR/best.pth" \
+"$PYTHON" inference.py --method-name "${METHOD:-unet-gpu}" --checkpoint "$CKPT_DIR/best.pth" \
     --clean-dir "$DATA/clean_euler" --noisy-dir "$DATA/noise_$NOISE"
 
 mkdir -p "$FIGURES"

@@ -7,10 +7,15 @@ BUCKET := gs://cmu-gpucloud-aiosman
 # NOISE : which noise set to use, e.g. `make score-all NOISE=scatter7`. It picks
 #         the noisy maps (datasets/noise_<NOISE>), the MTEX + model outputs
 #         (datasets/mtex_out_<NOISE>) and the model (checkpoints/checkpoints_<NOISE>).
+#         Its settings live in configs/noise/<NOISE>.yaml.
+# RUN   : a training experiment, configs/train/<RUN>.yaml, whose model is in
+#         checkpoints/runs/<RUN>. Without it, `infer` uses the old per-level
+#         model in checkpoints/checkpoints_<NOISE>.
 PROJ  := MAPS_DENOISING_Orientation_Noise
 MAP   := 00001
 SHAPE := 128 128
 NOISE := scatter5
+RUN   :=
 
 # The scoring scripts run on plain numpy, but the torch utilities need the
 # `ebsd` env -- base has no torch.
@@ -19,7 +24,7 @@ EBSD_PY := $(HOME)/miniconda3/envs/ebsd/bin/python
 CLEAN_DIR := $(PROJ)/datasets/clean_euler
 NOISY_DIR := $(PROJ)/datasets/noise_$(NOISE)
 RESULTS   := $(PROJ)/datasets/mtex_out_$(NOISE)
-CKPT      := $(PROJ)/checkpoints/checkpoints_$(NOISE)/best.pth
+CKPT      := $(if $(RUN),$(PROJ)/checkpoints/runs/$(RUN)/best.pth,$(PROJ)/checkpoints/checkpoints_$(NOISE)/best.pth)
 FIGURES   := $(PROJ)/figures/$(NOISE)
 
 CLEAN := $(CLEAN_DIR)/map_$(MAP)_clean_euler.txt
@@ -28,7 +33,7 @@ MASK  := $(NOISY).badmask.npy
 
 
 .PHONY: auth ls upload download backup score score-all plot maps check-orientation \
-        cache train-cpu train-gpu infer watch
+        cache noise train-cpu train-gpu infer watch
 
 auth:
 	gcloud auth login --no-launch-browser
@@ -104,7 +109,15 @@ check-orientation:
 cache:
 	$(EBSD_PY) $(PROJ)/src/prepare_cache.py --n-train 12000 --jobs 16
 
-# Submit training. The CPU variant exists because every GPU on this cluster was
+# Build a test set from its experiment file, configs/noise/$(NOISE).yaml ->
+# datasets/noise_$(NOISE). Maps that already exist are skipped, so this also
+# resumes an interrupted run. Each run is logged in provenance.json there.
+noise:
+	python $(PROJ)/src/add_ebsd_noise.py --config $(PROJ)/configs/noise/$(NOISE).yaml \
+	  $(CLEAN_DIR) $(NOISY_DIR)
+
+# Submit training: `make train-gpu CONFIG=scatter7` trains the experiment in
+# configs/train/scatter7.yaml (make passes CONFIG on to the job). The CPU variant exists because every GPU on this cluster was
 # allocated with ~470 jobs queued while 330 CPU cores sat idle; at base 32 it
 # is slow but not unreasonably so. They write to different checkpoint dirs
 # (checkpoints/ and checkpoints_gpu/) so both can run at once.
@@ -123,7 +136,8 @@ infer:
 	  --checkpoint $(CKPT) \
 	  --clean-dir  $(CLEAN_DIR) \
 	  --noisy-dir  $(NOISY_DIR) \
-	  --out        $(RESULTS)
+	  --out        $(RESULTS) \
+	  --method-name $(or $(RUN),unet)
 
 watch:
 	squeue -u $(USER) -o "%.10i %.10P %.20j %.3t %.10M %.6C %.22R"

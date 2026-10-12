@@ -34,10 +34,15 @@ Usage
     python add_ebsd_noise.py clean_euler/ noisy_mis05/ --shape 128 128 \
         --limit 500 --misindex 0.05 --ang
 
+    # the settings of a test set, from its experiment file
+    python add_ebsd_noise.py --config ../configs/noise/scatter5.yaml \
+        ../datasets/clean_euler ../datasets/noise_scatter5
+
 Pass a file for single-map mode, or a folder for batch mode. In batch mode each
 map gets seed+index, so maps differ from one another but a rerun reproduces the
 same corruption. Outputs that already exist are skipped, so an interrupted run
-resumes.
+resumes. Each run appends its code version and settings to provenance.json in
+the output folder (or <output>.provenance.json in single-map mode).
 
 Euler angles are Bunge ZXZ in radians throughout, matching DREAM.3D.
 """
@@ -49,6 +54,8 @@ import sys
 from pathlib import Path
 
 import numpy as np
+
+from provenance import append_provenance, parse_with_config, provenance
 
 # ---------------------------------------------------------------------------
 # quaternion helpers  (w, x, y, z)
@@ -261,13 +268,17 @@ def natural_key(s):
 
 
 def process_one(in_path, out_path, shape, args, rng, quiet=False):
-    """Noise a single map. Returns the number of corrupted pixels."""
+    """Noise a single map. Returns the noise level it got and how many pixels were replaced."""
     euler = load_euler(in_path)
     if euler.shape[0] != int(np.prod(shape)):
         raise ValueError(f"{euler.shape[0]} rows but --shape implies {int(np.prod(shape))}")
 
-    noisy, bad_idx = add_noise(euler, shape, args.scatter, args.misindex,
-                               args.boundary_bias, rng)
+    scatter, misindex = args.scatter, args.misindex
+    if args.random_levels:
+        # Drawn from this map's own rng, so a rerun gives the map the same level.
+        scatter = rng.uniform(0.0, args.scatter)
+        misindex = rng.uniform(0.0, args.misindex)
+    noisy, bad_idx = add_noise(euler, shape, scatter, misindex, args.boundary_bias, rng)
     save_euler(out_path, noisy)
 
     if args.save_mask:
@@ -289,10 +300,11 @@ def process_one(in_path, out_path, shape, args, rng, quiet=False):
             noisy, shape, args.step
         )
 
+    levels = {"scatter_max_deg": scatter, "misindex": misindex, "n_bad": len(bad_idx)}
     if not quiet:
         print(f"  {os.path.basename(str(in_path))} -> {out_path}  "
               f"({len(bad_idx)} px misindexed)")
-    return len(bad_idx)
+    return levels
 
 
 def main():
@@ -311,6 +323,10 @@ def main():
                         "(0 to disable; mean is half this)")
     p.add_argument("--misindex", type=float, default=0.05,
                    help="fraction of pixels replaced with a random orientation")
+    p.add_argument("--random-levels", action="store_true",
+                   help="give every map its own random level: scatter uniform in "
+                        "[0, --scatter] and misindex uniform in [0, --misindex]. "
+                        "The levels drawn are written to levels.csv")
     p.add_argument("--boundary-bias", type=float, default=1.0,
                    help="how much more likely a boundary pixel is to be misindexed "
                         "(1 = uniform, 4 = 4x more likely on boundaries)")
@@ -321,14 +337,15 @@ def main():
                    help="save which pixels were corrupted (needed for masked scoring)")
     p.add_argument("--ang", action="store_true", help="also write .ang files for MTEX")
     p.add_argument("--step", type=float, default=1.0, help="pixel size in microns")
-    args = p.parse_args()
+    args, config = parse_with_config(p, "noise")
 
     shape = tuple(args.shape)
     in_path = Path(args.clean)
 
     if in_path.is_file():
         rng = np.random.default_rng(args.seed)
-        n_bad = process_one(in_path, Path(args.noisy), shape, args, rng, quiet=True)
+        n_bad = process_one(in_path, Path(args.noisy), shape, args, rng, quiet=True)["n_bad"]
+        append_provenance(f"{args.noisy}.provenance.json", provenance(config, args))
         print(f"scatter     : 0-{args.scatter} deg on every pixel")
         print(f"misindexed  : {n_bad} px ({args.misindex:.2%})")
         print(f"wrote       : {args.noisy}")
@@ -357,6 +374,7 @@ def main():
     print(f"output      : {outdir.resolve()}\n")
 
     done = skipped = failed = 0
+    levels = []
     for i, f in enumerate(selected):
         out_path = outdir / f"{f.stem}_noisy.txt"
 
@@ -378,7 +396,8 @@ def main():
             continue
         try:
             rng = np.random.default_rng(args.seed + args.start + i)
-            process_one(f, out_path, shape, args, rng, quiet=True)
+            lv = process_one(f, out_path, shape, args, rng, quiet=True)
+            levels.append((int(re.search(r"map_(\d+)", f.name).group(1)), lv))
             done += 1
         except Exception as e:
             failed += 1
@@ -388,6 +407,18 @@ def main():
             print(f"  {i + 1}/{len(selected)}  ok={done} skipped={skipped} failed={failed}")
 
     print(f"\nDone. {done} written, {skipped} already existed, {failed} failed.")
+    if args.random_levels and levels:
+        lv_path = outdir / "levels.csv"
+        new = not lv_path.exists()
+        with open(lv_path, "a") as fh:
+            if new:
+                fh.write("map,scatter_max_deg,misindex,n_bad\n")
+            for mid, lv in levels:
+                fh.write(f"{mid},{lv['scatter_max_deg']:.6f},{lv['misindex']:.6f},{lv['n_bad']}\n")
+        print(f"levels      : {lv_path}")
+    append_provenance(outdir / "provenance.json",
+                      {**provenance(config, args),
+                       "maps": {"written": done, "skipped": skipped, "failed": failed}})
 
 
 if __name__ == "__main__":

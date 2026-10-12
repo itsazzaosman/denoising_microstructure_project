@@ -32,6 +32,25 @@ discontinuity shows up as large errors at unpredictable places.
 The gate is supervised directly from the bad-pixel mask the noise generator
 records, which is the one thing this model knows that the MTEX pre-cleaning
 step has to guess.
+
+The refinement starts from a local average of the neighbours (`kernel`):
+
+    "mean"     the edge-preserving local mean: neighbours within a fixed
+               mean_tol_deg of the centre count equally. Used by the
+               scatter5/7/9 runs; mean_tol has to be matched to the noise level.
+    "learned"  the network chooses the weight of every neighbour in the window,
+               per pixel (a kernel-predicting network):
+
+                   logit_k = -angle_k / tau + delta_k,   w = softmax_k(logit)
+                   q_base  = normalise(sum_k w_k * neighbour_k)
+
+               angle_k is the neighbour's disorientation to the centre after
+               symmetry alignment, tau a per-pixel strictness and delta_k a free
+               per-neighbour correction, both predicted. There is no tolerance to
+               set, so one model serves every noise level, and the output is
+               still an average of real neighbour orientations, which keeps the
+               gradient well conditioned. The untrained model is an
+               edge-preserving filter with tau = 5 deg everywhere.
 """
 
 import math
@@ -40,7 +59,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from orientation_torch import (axis_angle_to_quat, disorientation_loss,
+from orientation_torch import (aligned_neighbours, axis_angle_to_quat, disorientation_loss,
                                fz_reduce, local_correction, local_misfit_deg,
                                qmul, qnormalize, quat_to_matrix, sixd_to_quat,
                                slerp)
@@ -49,6 +68,11 @@ from orientation_torch import (axis_angle_to_quat, disorientation_loss,
 # Degrees that the local-correction channel is normalised by, so it lands in
 # roughly [-1, 1]. Also used to undo that scaling in forward().
 CORR_SCALE_DEG = 2.0
+
+# Learned kernel: tau, the per-pixel strictness, at initialisation, and the
+# angle the neighbour-angle input channels are divided by (then capped at 1).
+KERNEL_TAU_INIT_DEG = 5.0
+KERNEL_ANGLE_SCALE_DEG = 30.0
 
 
 def _norm(channels, groups=8):
@@ -110,8 +134,11 @@ class GatedOrientationUNet(nn.Module):
     """
 
     def __init__(self, base=64, max_refine_deg=5.0, gate_bias=-4.0, use_misfit=True,
-                 gate_deadzone=0.05, mean_radius=4, mean_tol_deg=2.0):
+                 gate_deadzone=0.05, mean_radius=4, mean_tol_deg=2.0, kernel="learned"):
         super().__init__()
+        if kernel not in ("mean", "learned"):
+            raise ValueError(f"kernel must be 'mean' or 'learned', not {kernel!r}")
+        self.kernel = kernel if mean_radius else None
         self.use_misfit = use_misfit
         self.max_refine = math.radians(max_refine_deg)
         self.gate_deadzone = gate_deadzone
@@ -124,7 +151,9 @@ class GatedOrientationUNet(nn.Module):
         # Rule of thumb: ~1.6x the max scatter angle.
         self.mean_tol_deg = mean_tol_deg
 
-        in_ch = 9 + (3 if mean_radius else 0) + (1 if use_misfit else 0)
+        self.n_neighbours = (2 * mean_radius + 1) ** 2
+        extra = {"mean": 3, "learned": self.n_neighbours, None: 0}[self.kernel]
+        in_ch = 9 + extra + (1 if use_misfit else 0)
         self.inc = DoubleConv(in_ch, base)                 # 128
         self.down1 = Down(base, base * 2)                  # 64
         self.down2 = Down(base * 2, base * 4)              # 32
@@ -149,12 +178,35 @@ class GatedOrientationUNet(nn.Module):
         with torch.no_grad():
             self.head_replace.bias.copy_(torch.tensor([1., 0., 0., 0., 1., 0.]))
 
+        if self.kernel == "learned":
+            # Zero weights, so at initialisation every pixel uses the same
+            # edge-preserving kernel: delta = 0 and tau = KERNEL_TAU_INIT_DEG.
+            self.head_kernel = nn.Conv2d(base, self.n_neighbours, 1)
+            self.head_tau = nn.Conv2d(base, 1, 1)
+            nn.init.zeros_(self.head_kernel.weight)
+            nn.init.zeros_(self.head_kernel.bias)
+            nn.init.zeros_(self.head_tau.weight)
+            with torch.no_grad():   # softplus^-1, so softplus(bias) = tau_init
+                self.head_tau.bias.fill_(math.log(math.expm1(KERNEL_TAU_INIT_DEG)))
+
     def build_input(self, q_noisy):
-        """(B, H, W, 4) -> ((B, C, H, W) features, (B, H, W, 3) local correction)."""
+        """(B, H, W, 4) -> ((B, C, H, W) features, what forward() needs for the kernel).
+
+        The second item is the local correction (B, H, W, 3) for kernel="mean",
+        and (aligned neighbours, their angles, valid mask) for kernel="learned".
+        """
         R = quat_to_matrix(fz_reduce(q_noisy)).flatten(-2)          # (B,H,W,9)
         chans = [R.permute(0, 3, 1, 2)]
         corr = None
-        if self.mean_radius:
+        if self.kernel == "learned":
+            # How far every neighbour is from the centre, after symmetry
+            # alignment: the evidence for "same grain or not", handed to the
+            # trunk directly. Fixed function of the input, so no gradient, and
+            # in fp32 for the same reason as the local mean below.
+            with torch.no_grad():
+                corr = aligned_neighbours(qnormalize(q_noisy.float()), self.mean_radius)
+            chans.append((corr[1] / KERNEL_ANGLE_SCALE_DEG).clamp(max=1.0))
+        elif self.kernel == "mean":
             # The rotation to the edge-preserving local mean: an approximate
             # answer for the refinement task, handed over rather than left for
             # the trunk to rediscover. Used twice -- as an input channel, and
@@ -205,11 +257,20 @@ class GatedOrientationUNet(nn.Module):
             # (~0.08 deg) rather than the identity (~0.50 deg).
             v = torch.tanh(self.head_refine(y)).permute(0, 2, 3, 1) * self.max_refine
             q_learned = axis_angle_to_quat(v)
-            if self.mean_radius:
+            tau = None
+            if self.kernel == "learned":
+                aligned, angle, valid = corr
+                tau = F.softplus(self.head_tau(y)).clamp_min(1e-2)      # (B,1,H,W) deg
+                logit = -angle / tau + self.head_kernel(y)              # (B,K,H,W)
+                logit = logit.masked_fill(~valid.unsqueeze(0), float("-inf"))
+                w = torch.softmax(logit, dim=1)
+                q_base = qnormalize((w.unsqueeze(-1) * aligned).sum(1))  # (B,H,W,4)
+            elif self.kernel == "mean":
                 q_mean = axis_angle_to_quat(corr * math.radians(CORR_SCALE_DEG))
-                q_refine = qnormalize(qmul(q_learned, qmul(q_mean, q_in)))
+                q_base = qmul(q_mean, q_in)
             else:
-                q_refine = qnormalize(qmul(q_learned, q_in))
+                q_base = q_in
+            q_refine = qnormalize(qmul(q_learned, q_base))
 
             q_replace = sixd_to_quat(self.head_replace(y).permute(0, 2, 3, 1))
 
@@ -225,8 +286,11 @@ class GatedOrientationUNet(nn.Module):
 
             q_out = slerp(q_refine, q_replace, gate)
 
-        return {"q": q_out, "q_refine": q_refine, "q_replace": q_replace,
-                "gate": gate.squeeze(-1), "gate_logit": gate_logit.squeeze(-1)}
+        out = {"q": q_out, "q_refine": q_refine, "q_replace": q_replace,
+               "gate": gate.squeeze(-1), "gate_logit": gate_logit.squeeze(-1)}
+        if tau is not None:
+            out["kernel_tau"] = tau.squeeze(1)      # per-pixel strictness, deg
+        return out
 
 
 # ---------------------------------------------------------------------------

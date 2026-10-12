@@ -54,6 +54,19 @@ like-for-like. Training uses maps 501+ and corrupts them fresh every epoch.
 
 ## The model
 
+**Current main model (2026-10-11):** one "blind" network for every noise level
+(`configs/train/blind_learned_seed{1,2,3}.yaml`), trained with a fresh random
+level per map (scatter max 0-9 deg, misindexing 0-10%, boundary bias 4) and
+`--kernel learned`: instead of a fixed same-grain tolerance (`mean_tol`), the
+network chooses the weight of every neighbour in a 9x9 window for every pixel,
+after aligning each neighbour to the centre across the 24 cubic symmetry
+variants (`aligned_neighbours` in `orientation_torch.py`). That alignment also
+makes the filter give the same answer however the vendor software stored each
+pixel's symmetry variant, which the fixed local mean did not (0.29 -> 1.20 deg
+on validation maps relabelled with random variants; the learned kernel: 0.375
+-> 0.375 deg). The description below is of the original design, which the
+`scatter5/7/9` runs use (`--kernel mean`).
+
 A U-Net with three heads, because the noise has two regimes that want
 different treatment:
 
@@ -169,22 +182,27 @@ make infer NOISE=scatter7        # model predictions -> datasets/mtex_out_scatte
 make check-orientation           # verify the orientation maths against numpy
 ```
 
-Training:
+Every experiment is one YAML file in [`configs/`](configs/README.md):
+`configs/noise/<set>.yaml` for a test set, `configs/train/<run>.yaml` for a
+training run. New experiment, new file.
 
 ```bash
-python src/prepare_cache.py --n-train 12000    # once, ~1 min
-CKPT_DIR=$PWD/checkpoints/<run-name> NOISE=scatter7 \
-  sbatch src/train_model.sh --noise-mode scatter --scatter-deg 7 --resume auto
+make noise NOISE=scatter7                              # test set from configs/noise/scatter7.yaml
+python src/prepare_cache.py --n-train 12000            # once, ~1 min
+CONFIG=scatter7 sbatch src/train_model.sh --resume auto   # -> checkpoints/runs/scatter7/
+make infer RUN=scatter7 NOISE=scatter7
 ```
 
-`NOISE` only chooses the test set scored at the end of the job; the training
-noise comes from the `train.py` flags, so keep the two in step. Swap in
-`train_model_cpu.sh` for the CPU version.
+With `CONFIG`, the job script takes every training setting from the file,
+saves to `checkpoints/runs/<CONFIG>`, and scores the file's `test_set:` at the
+end. Swap in `train_model_cpu.sh` for the CPU version. Every result records
+the git commit that made it; see the table in `configs/README.md`.
 
-**Always set `CKPT_DIR` to a new folder.** The CPU script's default is
-`checkpoints/` itself, where it would overwrite `checkpoints/history.json`
-(the only record of the misindexing run); the GPU default is `checkpoints_gpu/`.
-With `--resume auto`, pointing at an existing run's folder continues that run.
+**Without `CONFIG`, always set `CKPT_DIR` to a new folder.** The CPU script's
+default is `checkpoints/` itself, where it would overwrite
+`checkpoints/history.json` (the only record of the misindexing run); the GPU
+default is `checkpoints_gpu/`. With `--resume auto`, pointing at an existing
+run's folder continues that run.
 
 Both job scripts checkpoint every epoch and take `--resume auto`, so a
 preemption or a wall-clock kill costs at most the epoch in flight.
@@ -199,6 +217,7 @@ else is tracked in git.
 MAPS_DENOISING_Orientation_Noise/
 |-- README.md                       this file
 |-- src/                            all code
+|-- configs/                        one YAML file per experiment (test sets, training runs)
 |-- datasets/                       maps, noise sets, MTEX outputs, cache  (~27 GB)
 |-- checkpoints/                    trained models and training histories
 |-- figures/                        plots and per-map score tables
@@ -212,10 +231,13 @@ MAPS_DENOISING_Orientation_Noise/
 | `orientation.py` | Orientation maths in numpy, used by the scorers. Euler-to-quaternion conversion, cubic disorientation, map loading and the grain-boundary mask. Its disorientation uses the classical cubic shortcut, ~67x faster than searching all 24x24 symmetry pairs. |
 | `orientation_torch.py` | The same maths in torch, batched and differentiable, which the model is built on. Adds the 6D rotation representation, `disorientation_loss` (bounded gradient at zero error), slerp, and the edge-preserving local mean and misfit used as model inputs. `--self-test` checks it all against `orientation.py`. |
 | `add_ebsd_noise.py` | The noise model: scatter plus misindexing, with optional bias toward grain boundaries. Takes one map or a whole folder (`--limit`, `--start`). `--save-mask` writes the `.badmask.npy` files and `--ang` writes the `.ang` files MTEX reads. Created `datasets/noise_scatter*/`. |
+| `make_splits.py` | Divides `datasets/clean_euler` into test (1-500), val (501-1000) and train (1001-40000), leaving out the two broken maps. Writes `configs/splits/*.txt` and the symlink folders in `datasets/splits/`. |
+| `check_noise.py` | Measures the noise the model trains and validates on (scatter level, misindexed %, boundary bias as realised) and draws examples -> `figures/noise_check/`. |
 | `prepare_cache.py` | Packs the clean maps with id > 500 into `datasets/cache/train_clean.npy` (default: the first 12,000 usable ones). With `--noisy-dir` it also packs a test set (`test_*.npy`); that has not been done for the scatter sets. |
 | `dataset.py` | PyTorch datasets. `TrainMaps` reads the cache and adds fresh noise on every access. `TestMaps` reads the packed test cache. `DirMaps` reads any clean/noisy folder pair straight from `.txt`, so it needs no cache. |
 | `architecture.py` | The gated U-Net (refine, replace and gate heads) and its loss, `denoise_loss`. |
-| `train.py` | Training loop. Validation reports the same four columns as the scorer. Writes `best.pth`, `last.pth` and `history.json` to `--checkpoints-dir`, and redraws `figures/training_curves.png` every epoch. |
+| `provenance.py` | Loads a `--config` file's section as a script's defaults (unknown keys are an error) and records the git commit, settings and command line with every result. |
+| `train.py` | Training loop. Validation reports the same four columns as the scorer. Writes `best.pth`, `last.pth`, `history.json` and `run_info.json` to `--checkpoints-dir`, and redraws `figures/training_curves.png` every epoch. |
 | `inference.py` | Runs a checkpoint over the test maps and writes `<stem>__<method-name>.txt` in MTEX's output format, so the scorers treat it like any other method. Pass `--clean-dir` and `--noisy-dir` to read a noise folder directly instead of the test cache. |
 | `score_filter_denoising.py` | Scores one map: ALL / CORRUPTED / BOUNDARY / >10 deg for every `<stem>__<method>.txt` in a results folder. |
 | `score_dataset.py` | Scores a whole dataset: per-map scores, then the median and IQR across maps. `--metric mean` gives the mean-based numbers; `--only` and `--exclude` pick methods; `--csv` writes the per-map table. |
@@ -239,7 +261,8 @@ MAPS_DENOISING_Orientation_Noise/
 | `mtex_out_scatter5/` | MTEX filter outputs for `noise_scatter5`, maps 1-10 only. | 120 | 56 MB |
 | `mtex_out_scatter7/` | Same for `noise_scatter7`. | 120 | 56 MB |
 | `mtex_out_scatter9/` | Same for `noise_scatter9`. | 120 | 56 MB |
-| `cache/` | Packed training maps for `train.py`. | 2 | 2.2 GB |
+| `splits/` | **The train/val/test split** (made by `src/make_splits.py`, ids listed in `configs/splits/`). `train/`, `val/`, `test/` each hold `clean_euler/` as symlinks to `clean_euler/` (no extra disk; the GCS sync skips links). `val/noise_random/` is the fixed noisy validation set: each map has its own random level (scatter max 0-9 deg, misindexing 0-10%, boundary bias 4), listed in `levels.csv`. | 40,000 links + 1,002 | 0.4 GB |
+| `cache/` | Packed training maps for `train.py`: `split_train_clean.npy` is the whole train split (maps 1001-40000, 38,998 maps); `train_clean.npy` is the older 12,000-map cache the scatter5/7/9 runs used. | 4 | 9.9 GB |
 
 Every `.txt` map has the same layout: a header line
 `EulerAngles_0 EulerAngles_1 EulerAngles_2`, then 16,384 rows of three Euler

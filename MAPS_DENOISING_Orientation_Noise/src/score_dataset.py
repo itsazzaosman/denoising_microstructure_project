@@ -37,6 +37,7 @@ Usage
 """
 
 import argparse
+import json
 import re
 import sys
 from collections import defaultdict
@@ -47,6 +48,7 @@ import numpy as np
 
 from orientation import (boundary_mask, disorientation_deg, euler_to_quat,
                          load_euler)
+from provenance import provenance
 
 MAP_ID = re.compile(r"map_(\d+)")
 
@@ -274,13 +276,20 @@ def main():
               f"boundary {best_all[1].get('bnd', float('nan')):.3f} deg)")
 
     if args.csv:
+        # The *_med column names predate --metric; with --metric mean they hold
+        # per-map means. The sidecar records which, with the full command.
+        prov = provenance(args=args)
+        commit = prov["git"]["commit"]
         with open(args.csv, "w") as f:
-            f.write("map,method,all_med,bad_med,bnd_med,gross_pct\n")
+            f.write("map,method,all_med,bad_med,bnd_med,gross_pct,commit\n")
             for mid in sorted(per_map):
                 for method, s in sorted(per_map[mid].items()):
                     f.write(f"{mid},{method},{s['all']:.6f},{s['bad']:.6f},"
-                            f"{s['bnd']:.6f},{s['gross']:.4f}\n")
-        print(f"\nwrote {args.csv}  ({len(per_map)} maps x {len(methods)} methods)")
+                            f"{s['bnd']:.6f},{s['gross']:.4f},{commit}\n")
+        side = Path(args.csv).with_suffix(".provenance.json")
+        side.write_text(json.dumps(prov, indent=2, default=str))
+        print(f"\nwrote {args.csv}  ({len(per_map)} maps x {len(methods)} methods)"
+              f"\n      {side}  (code {commit})")
 
 
 if __name__ == "__main__":

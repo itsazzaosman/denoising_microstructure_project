@@ -427,6 +427,45 @@ def local_correction(q_map, radius=2, tol_deg=2.0, scale_deg=2.0):
 # ---------------------------------------------------------------------------
 
 
+def aligned_neighbours(q_map, radius=4, sym=None):
+    """
+    Every neighbour in a (2r+1)^2 window, rewritten in the symmetry variant
+    closest to the centre pixel, plus its disorientation to the centre.
+
+    This is what lets a filter average pixels stored as different symmetry
+    variants. Real vendor files reduce each pixel to the fundamental zone on
+    its own, so one grain can mix variants; local_mean_quat's sign-only
+    alignment drops such neighbours instead (0.31 -> 1.34 deg on a 5 deg toy
+    map with a random variant per pixel).
+
+    q_map: (B, H, W, 4) unit quats ->
+        aligned (B, K, H, W, 4)   K = (2r+1)^2 neighbours, raster order, centre at K // 2
+        angle   (B, K, H, W)      disorientation to the centre, degrees
+        valid   (K, H, W) bool    False where the window runs off the map
+    """
+    if sym is None:
+        sym = cubic_sym_quats(q_map.device, q_map.dtype)
+    B, H, W, _ = q_map.shape
+    r = radius
+    xp = F.pad(q_map.permute(0, 3, 1, 2), (r,) * 4, mode="replicate")
+    inside = F.pad(torch.ones(H, W, device=q_map.device), (r,) * 4) > 0
+
+    aligned, angles, valid = [], [], []
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            nb = xp[:, :, r + dy:r + dy + H, r + dx:r + dx + W].permute(0, 2, 3, 1)
+            variants = qmul(sym, nb.unsqueeze(-2))                   # (B,H,W,24,4)
+            dots = (variants * q_map.unsqueeze(-2)).sum(-1)          # (B,H,W,24)
+            best = dots.abs().argmax(dim=-1, keepdim=True)
+            q = torch.gather(variants, -2,
+                             best.unsqueeze(-1).expand(*best.shape, 4)).squeeze(-2)
+            d = torch.gather(dots, -1, best)                          # (B,H,W,1)
+            aligned.append(torch.where(d < 0, -q, q))                 # same hemisphere
+            angles.append(torch.rad2deg(2.0 * torch.acos(d.abs().squeeze(-1).clamp(max=1.0))))
+            valid.append(inside[r + dy:r + dy + H, r + dx:r + dx + W])
+    return torch.stack(aligned, 1), torch.stack(angles, 1), torch.stack(valid, 0)
+
+
 def local_misfit_deg(q_map, neighbourhood=8):
     """
     Per-pixel median disorientation to its neighbours, in degrees.

@@ -11,9 +11,16 @@ noisy maps and bad-pixel masks, because those are the exact inputs MTEX was
 given -- the test set must not be re-noised or the comparison stops being
 like-for-like.
 
+The training maps are the ids listed in configs/splits/train.txt (made by
+make_splits.py), packed as cache/split_train_clean.npy. The older cache,
+cache/train_clean.npy (the first 12,000 usable maps with id > 500, which
+overlaps today's validation maps 501-1000), is left alone so the scatter5/7/9
+runs can still be reproduced from their configs.
+
 Usage
 -----
-    python prepare_cache.py --shape 128 128 --n-train 12000
+    python prepare_cache.py                 # every map in the train split
+    python prepare_cache.py --n-train 12000 # only the first 12,000 of them
 """
 
 import argparse
@@ -30,6 +37,7 @@ CLEAN_DIR = ROOT / "datasets/clean_euler"
 NOISY_DIR = ROOT / "datasets/noisy_scatter5"
 CACHE_DIR = ROOT / "datasets/cache"
 
+SPLITS_DIR = ROOT / "configs/splits"
 TEST_MAX_ID = 500          # maps 1-500 are the MTEX baseline set; never train on them
 
 
@@ -103,8 +111,11 @@ def pack(paths, n, out, jobs, label):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--shape", nargs=2, type=int, default=(128, 128), metavar=("NY", "NX"))
-    p.add_argument("--n-train", type=int, default=12000,
-                   help="how many training maps to pack (0 = every usable map)")
+    p.add_argument("--n-train", type=int, default=0,
+                   help="how many training maps to pack (0 = the whole train split)")
+    p.add_argument("--split", default="train",
+                   help="pack the ids in configs/splits/<split>.txt as "
+                        "cache/split_<split>_clean.npy")
     p.add_argument("--jobs", type=int, default=16)
     p.add_argument("--noisy-dir", default=None,
                    help="pack this directory as the test set. Omit to pack only "
@@ -116,14 +127,16 @@ def main():
     n = int(np.prod(args.shape))
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    every = sorted(CLEAN_DIR.glob("map_*_clean_euler.txt"), key=lambda f: map_id(f) or 0)
-    train_paths = usable([f for f in every if (map_id(f) or 0) > TEST_MAX_ID])
+    split_file = SPLITS_DIR / f"{args.split}.txt"
+    split_ids = [int(line) for line in split_file.read_text().split()]
+    if any(i <= TEST_MAX_ID for i in split_ids):
+        raise SystemExit(f"{split_file} contains test maps (id <= {TEST_MAX_ID})")
+    train_paths = usable([CLEAN_DIR / f"map_{i:05d}_clean_euler.txt" for i in split_ids])
     if args.n_train:
         train_paths = train_paths[:args.n_train]
 
-    print(f"clean maps found : {len(every)}")
-    print(f"train pool       : ids > {TEST_MAX_ID}, packing {len(train_paths)}")
-    pack(train_paths, n, CACHE_DIR / "train_clean.npy", args.jobs, "train")
+    print(f"split            : {split_file} ({len(split_ids)} ids), packing {len(train_paths)}")
+    pack(train_paths, n, CACHE_DIR / f"split_{args.split}_clean.npy", args.jobs, args.split)
 
     if not args.noisy_dir:
         print("\nno --noisy-dir given: training cache only (inference reads "
