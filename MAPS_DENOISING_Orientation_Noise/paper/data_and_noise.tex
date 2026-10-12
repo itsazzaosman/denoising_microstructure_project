@@ -1,0 +1,87 @@
+% ---------------------------------------------------------------------------
+% Methods: synthetic data, noise model, and the training / validation / test
+% sets. Numbers checked against the data on 2026-10-12.
+% Items in [square brackets] are for you to fill in; \cite keys are placeholders.
+% ---------------------------------------------------------------------------
+
+\subsection{Synthetic orientation maps}
+
+We generated 40{,}000 two-dimensional polycrystalline microstructures with
+DREAM.3D~\cite{groeber2014dream3d}, each a $128 \times 128$ pixel orientation
+map on a square grid with a step of 1~$\mu$m and a single cubic phase (nickel,
+point group $m\bar{3}m$) [grain-size distribution and texture settings used in
+DREAM.3D]. A map contains a median of 50 grains (interquartile range 48--53),
+the mean equivalent circle diameter of a grain is about 20 pixels, and 17\% of
+the pixels lie on a grain boundary, which we define as a pixel with at least
+one of its four neighbours in a different grain. Two maps were incomplete
+because their generation run was interrupted and were discarded, leaving
+39{,}998. Since every map is a separate microstructure, we split the data by
+map: maps 1--500 form the test set, maps 501--1000 the validation set, and
+the remaining 38{,}998 maps the training set. No grain therefore appears in more
+than one set. All maps were produced with the same generator settings, and the
+number of grains per map is the same across the three ranges.
+
+\subsection{Noise model}
+
+Each noisy map combines two kinds of error. The first is orientation scatter:
+every pixel is rotated by a small rotation about an axis drawn uniformly on the
+sphere, with a rotation angle drawn uniformly between $0$ and $\theta_{\max}$.
+The disorientation between a
+scattered pixel and its true orientation therefore has a median of
+$\theta_{\max}/2$. The second is misindexing: a fraction $p$ of the pixels is
+replaced by orientations drawn uniformly from SO(3)~\cite{shoemake1992uniform},
+so that these pixels carry no information about their true orientation.
+Because misindexing in real scans occurs mostly where the diffraction pattern
+mixes two grains, a boundary pixel is chosen four times as often as an interior
+pixel, sampled without replacement. Scatter is applied first and misindexing
+second. All errors are measured as the disorientation angle, the smallest
+rotation between two orientations once the 24 proper rotations of the cubic
+group are taken into account.
+
+The network is trained on noise that is drawn afresh every time a training map
+is used. For each draw, $\theta_{\max}$ is sampled uniformly from
+$[0^\circ, 15^\circ]$ and $p$ from $[0, 10\%]$, so the network never sees the
+same corruption twice and is never told the noise level of its input. We also
+apply a random rotation of the specimen frame to all orientations of the map,
+which leaves every misorientation between pixels unchanged, together with
+random flips and $90^\circ$ rotations of the pixel grid. The 500 validation
+maps were corrupted once, with a level drawn per map from the same ranges and a
+fixed random seed, so that every epoch and every training run is compared on
+identical inputs. The validation set is used only to select the checkpoint.
+
+\subsection{Test conditions}
+
+The test maps were corrupted under 28 fixed conditions: every combination of
+$\theta_{\max} \in \{1, 3, 5, 7, 9, 12, 15\}^\circ$ and
+$p \in \{0, 3, 6, 9\}\%$, each applied to all 500 test maps
+(Fig.~\ref{fig:noise_examples}). The lowest level gives a median error of
+$0.5^\circ$, comparable to the angular precision usually reported for
+Hough-based indexing~\cite{demirel2009accuracy}; at $\theta_{\max} = 15^\circ$
+(median $7.5^\circ$) the grains are only just distinguishable. All 28
+conditions were generated with the same random seed. For a given map, the
+rotation axes and the fraction of $\theta_{\max}$ drawn for each pixel are thus
+the same in every condition, and the scatter is identical across the four
+misindexing levels, so any difference between two conditions comes from the
+amount of noise and not from a different random draw. At
+$\theta_{\max} \geq 12^\circ$, scatter alone moves 17--33\% of the pixels
+beyond $10^\circ$ from their true orientation. We therefore assess the repair
+of misindexed pixels on the recorded set of replaced pixels rather than with a
+fixed angular threshold.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/noise_examples.pdf}
+  \caption{The noise model on test map 1, coloured with the IPF-Z key.
+    (a)~Clean map. (b)--(e)~Orientation scatter alone, with maximum angle
+    $\theta_{\max} = 1^\circ$, $5^\circ$, $9^\circ$ and $15^\circ$.
+    (f)--(h)~Misindexing alone, $p = 3$, $6$ and $9\%$ of the pixels: the
+    replaced pixels of the corresponding test sets shown on the clean map,
+    without their scatter. (i)~Positions of the misindexed pixels in (h)
+    (blue) relative to the grain boundaries (grey): boundary pixels
+    make up 16\% of the map but receive 41\% of the misindexing, because a
+    boundary pixel is four times as likely to be chosen. (j)--(m)~Scatter and
+    misindexing together, from the mildest to the most severe test condition:
+    $\theta_{\max} = 1^\circ$ with $p = 3\%$, $5^\circ$ with $6\%$,
+    $9^\circ$ with $9\%$, and $15^\circ$ with $9\%$.}
+  \label{fig:noise_examples}
+\end{figure*}
