@@ -1,14 +1,11 @@
 {
   "git": {
-    "commit": "5bdb65494705067afe60b10174f425d198b61dd2-dirty",
-    "dirty_files": [
-      "MAPS_DENOISING_Orientation_Noise/src/train.py",
-      "MAPS_DENOISING_Orientation_Noise/src/plot_training.py"
-    ]
+    "commit": "0ed04aee5133b1eadf6247d66c74945dd36752d2",
+    "dirty_files": []
   },
-  "time": "2026-10-12T09:52:48-04:00",
-  "host": "orchard-community-3",
-  "slurm_job": "155922",
+  "time": "2026-10-13T03:22:39-04:00",
+  "host": "orchard-community-4",
+  "slurm_job": "155926",
   "command": "/home/aiosman/miniconda3/envs/ebsd/bin/python score_dataset.py --clean-dir /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/clean_euler --noisy-dir /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter5 --results /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/mtex_out_scatter5/ --shape 128 128 --jobs 8 --all-maps --csv /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/figures/scatter5/scores_median.csv",
   "config": null,
   "args": {
