@@ -93,7 +93,7 @@ def main():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from matplotlib.ticker import FuncFormatter
+    from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
     plt.rcParams.update({"font.size": 9, "text.color": INK, "axes.labelcolor": INK2,
                          "xtick.color": INK2, "ytick.color": INK2, "axes.edgecolor": MUTED})
     grid = [r for r in rows if r["set"] != "test_random"]
@@ -109,7 +109,9 @@ def main():
             a.errorbar(x, [r[f"model_{key}"] for r in sub], yerr=[r[f"model_{key}_sd"] for r in sub],
                        color=RAMP[m], lw=2, marker="o", ms=4, capsize=2, label=f"{m}% misindexed")
         a.set_yscale("log")
+        a.yaxis.set_major_locator(LogLocator(subs=(1, 2, 5)))     # 0.1 0.2 0.5 1 2 5 10 ...
         a.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+        a.yaxis.set_minor_formatter(NullFormatter())
         a.set_xlabel(r"maximum scatter angle $\theta_{\max}$ (deg)")
         a.set_xticks([1, 3, 5, 7, 9, 12, 15])
         a.set_title(title, loc="left", fontsize=9.5)

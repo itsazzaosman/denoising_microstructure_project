@@ -1,0 +1,28 @@
+{
+  "git": {
+    "commit": "a72280d6beef571e4570db2890501e393aac2acb-dirty",
+    "dirty_files": [
+      "MAPS_DENOISING_Orientation_Noise/src/summarize_results.py"
+    ]
+  },
+  "time": "2026-10-13T06:01:14-04:00",
+  "host": "orchard-login-001",
+  "slurm_job": null,
+  "command": "/home/aiosman/miniconda3/bin/python MAPS_DENOISING_Orientation_Noise/src/score_dataset.py --clean-dir MAPS_DENOISING_Orientation_Noise/datasets/clean_euler --noisy-dir MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter5_mis9 --results MAPS_DENOISING_Orientation_Noise/datasets/mtex_out_scatter5_mis9/ --shape 128 128 --jobs 8 --all-maps --csv MAPS_DENOISING_Orientation_Noise/figures/scatter5_mis9/scores_mean.csv",
+  "config": null,
+  "args": {
+    "clean_dir": "MAPS_DENOISING_Orientation_Noise/datasets/clean_euler",
+    "noisy_dir": "MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter5_mis9",
+    "results": "MAPS_DENOISING_Orientation_Noise/datasets/mtex_out_scatter5_mis9/",
+    "shape": [
+      128,
+      128
+    ],
+    "limit": 0,
+    "jobs": 8,
+    "all_maps": true,
+    "only": null,
+    "exclude": null,
+    "csv": "MAPS_DENOISING_Orientation_Noise/figures/scatter5_mis9/scores_mean.csv"
+  }
+}
