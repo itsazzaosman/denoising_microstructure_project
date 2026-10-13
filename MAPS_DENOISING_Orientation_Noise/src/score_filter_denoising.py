@@ -125,11 +125,9 @@ def boundary_mask(q_clean, shape):
 def score(q_clean, q_test, sym, bad, bnd):
     d = disorientation_deg(q_clean, q_test, sym)
     row = {
-        "all_med": np.median(d),
         "all_mean": d.mean(),
-        "bad_med": np.median(d[bad]) if bad is not None and bad.any() else np.nan,
         "bad_mean": d[bad].mean() if bad is not None and bad.any() else np.nan,
-        "bnd_med": np.median(d[bnd]) if bnd.any() else np.nan,
+        "bnd_mean": d[bnd].mean() if bnd.any() else np.nan,
         "still_bad": 100.0 * (d > 10.0).mean(),
     }
     return row
@@ -195,15 +193,15 @@ def main():
 
     print("\n" + "=" * 78)
     print(f"{'method':<20} {'ALL':>12} {'CORRUPTED':>12} {'BOUNDARY':>12} {'>10 deg':>10}")
-    print(f"{'':<20} {'median deg':>12} {'median deg':>12} {'median deg':>12} {'% px':>10}")
+    print(f"{'':<20} {'mean deg':>12} {'mean deg':>12} {'mean deg':>12} {'% px':>10}")
     print("-" * 78)
     for name, r in rows:
-        print(f"{name:<20} {r['all_med']:>12.3f} {r['bad_med']:>12.3f} "
-              f"{r['bnd_med']:>12.3f} {r['still_bad']:>10.2f}")
+        print(f"{name:<20} {r['all_mean']:>12.3f} {r['bad_mean']:>12.3f} "
+              f"{r['bnd_mean']:>12.3f} {r['still_bad']:>10.2f}")
     print("=" * 78)
 
     base = rows[0][1]
-    best = min(rows[1:], key=lambda kv: kv[1]["all_med"]) if len(rows) > 1 else None
+    best = min(rows[1:], key=lambda kv: kv[1]["all_mean"]) if len(rows) > 1 else None
     print("\nHow to read this")
     print("  ALL       lower is better, but flattered by untouched pixels")
     print("  CORRUPTED did the method actually repair the damaged pixels?")
@@ -211,9 +209,9 @@ def main():
     print("  >10 deg   share of pixels still grossly wrong after filtering")
     if best:
         print(f"\n  best on ALL: {best[0]} "
-              f"({base['all_med']:.3f} -> {best[1]['all_med']:.3f} deg)")
+              f"({base['all_mean']:.3f} -> {best[1]['all_mean']:.3f} deg)")
         print(f"  that method on CORRUPTED: "
-              f"{base['bad_med']:.3f} -> {best[1]['bad_med']:.3f} deg")
+              f"{base['bad_mean']:.3f} -> {best[1]['bad_mean']:.3f} deg")
 
 
 if __name__ == "__main__":

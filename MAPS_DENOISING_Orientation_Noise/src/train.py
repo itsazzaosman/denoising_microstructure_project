@@ -7,7 +7,7 @@ CORRUPTED, BOUNDARY and >10 deg -- computed per map then aggregated across
 maps, so the training log is directly comparable to the MTEX baseline table
 without any mental conversion.
 
-Model selection uses `gross% + ALL_median`, not the loss. The loss is a
+Model selection uses `gross% + ALL_mean`, not the loss. The loss is a
 weighted sum with auxiliary terms and its scale says nothing about whether the
 model beats a filter; the two quantities in that score are the ones the
 baseline is judged on, and the gross-error rate deliberately dominates because
@@ -117,7 +117,7 @@ def set_seed(seed):
 
 @torch.no_grad()
 def evaluate(model, loader, device, amp_dtype, loss_kw):
-    """Per-map medians, then the median across maps -- as score_dataset.py does.
+    """Per-map means, then the mean across maps -- as score_dataset.py does.
 
     Also the validation loss: the same denoise_loss, with the same weights, as
     the training loss, so the two curves can be compared directly.
@@ -151,21 +151,22 @@ def evaluate(model, loader, device, amp_dtype, loss_kw):
 
         for b in range(d.shape[0]):
             db, bb, nb = d[b], bad[b], bnd[b]
-            per_map["all"].append(db.median().item())
+            per_map["all"].append(db.mean().item())
             per_map["gross"].append(100.0 * (db > 10).float().mean().item())
-            per_map["in_all"].append(d_in[b].median().item())
+            per_map["in_all"].append(d_in[b].mean().item())
             per_map["in_gross"].append(100.0 * (d_in[b] > 10).float().mean().item())
             if bb.any():
-                per_map["bad"].append(db[bb].median().item())
+                per_map["bad"].append(db[bb].mean().item())
             if nb.any():
-                per_map["bnd"].append(db[nb].median().item())
+                per_map["bnd"].append(db[nb].mean().item())
 
         pred = out["gate"] > 0.5
         tp += (pred & bad).sum().item()
         fp += (pred & ~bad).sum().item()
         fn += (~pred & bad).sum().item()
 
-    res = {k: float(np.median(v)) if v else float("nan") for k, v in per_map.items()}
+    res = {k: float(np.mean(v)) if v else float("nan") for k, v in per_map.items()}
+    res["stat"] = "mean"        # runs before 2026-10-13 stored medians and have no "stat"
     res["gate_precision"] = tp / max(tp + fp, 1)
     res["gate_recall"] = tp / max(tp + fn, 1)
     res["loss"] = loss_sum / max(n_maps, 1)

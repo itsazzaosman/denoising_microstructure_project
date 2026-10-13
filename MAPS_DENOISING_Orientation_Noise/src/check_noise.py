@@ -6,8 +6,8 @@ Draws a sample of training maps through TrainMaps exactly as training does
 (random level per map), reads the saved validation set, and reports what the
 noise actually looks like on the pixels, not just the settings asked for:
 
-  scatter max     2 x the median error of the non-misindexed pixels (the tilt
-                  angle is uniform in [0, max], so its median is max / 2)
+  scatter max     2 x the mean error of the non-misindexed pixels (the tilt
+                  angle is uniform in [0, max], so its mean is max / 2)
   misindexed %    share of pixels replaced
   boundary odds   how much more likely a boundary pixel is to be misindexed
                   than an interior one; should come out near --boundary-bias
@@ -44,12 +44,12 @@ def measure(q_noisy, q_clean, bad):
     p_bad_bnd = bad[bnd].mean() if bnd.any() else np.nan
     p_bad_int = bad[~bnd].mean() if (~bnd).any() else np.nan
     return {
-        "scatter_max_est": 2.0 * float(np.median(d[~bad])),
+        "scatter_max_est": 2.0 * float(d[~bad].mean()),
         "misindexed_pct": 100.0 * float(bad.mean()),
         # P(bad | boundary) / P(bad | interior): the boundary bias as realised.
         "boundary_ratio": (float(p_bad_bnd / p_bad_int)
                            if bad.any() and p_bad_int > 0 else np.nan),
-        "all_med": float(np.median(d)),
+        "all_mean": float(d.mean()),
         "gross_pct": 100.0 * float((d > 10).mean()),
     }
 
@@ -63,8 +63,7 @@ def as_numpy(sample):
 def summarise(rows, key):
     v = np.array([r[key] for r in rows], dtype=float)
     v = v[~np.isnan(v)]
-    return {"min": v.min(), "p25": np.percentile(v, 25), "median": np.median(v),
-            "p75": np.percentile(v, 75), "max": v.max(), "mean": v.mean()}
+    return {"min": v.min(), "mean": v.mean(), "sd": v.std(ddof=1), "max": v.max()}
 
 
 def main():
@@ -99,7 +98,7 @@ def main():
         qn, qc, bad = as_numpy(val[k])
         rows.append({"split": "val", "map": int(val.ids[k]), **measure(qn, qc, bad)})
 
-    keys = ["scatter_max_est", "misindexed_pct", "boundary_ratio", "all_med", "gross_pct"]
+    keys = ["scatter_max_est", "misindexed_pct", "boundary_ratio", "all_mean", "gross_pct"]
     with open(out / "per_map.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["split", "map", *keys])
         w.writeheader()
@@ -109,8 +108,8 @@ def main():
           f"val: {sum(r['split'] == 'val' for r in rows)} maps\n")
     with open(out / "summary.csv", "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["split", "quantity", "min", "p25", "median", "p75", "max", "mean"])
-        print(f"{'':<6}{'quantity':<18}{'min':>8}{'p25':>8}{'median':>8}{'p75':>8}{'max':>8}{'mean':>8}")
+        w.writerow(["split", "quantity", "min", "mean", "sd", "max"])
+        print(f"{'':<6}{'quantity':<18}{'min':>8}{'mean':>8}{'sd':>8}{'max':>8}")
         for split in ("train", "val"):
             sub = [r for r in rows if r["split"] == split]
             for key in keys:

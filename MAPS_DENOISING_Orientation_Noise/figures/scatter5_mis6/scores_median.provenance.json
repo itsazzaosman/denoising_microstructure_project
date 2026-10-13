@@ -1,0 +1,40 @@
+{
+  "git": {
+    "commit": "c556220badde0f9b3ae584de873d99c639b0f64e-dirty",
+    "dirty_files": [
+      "MAPS_DENOISING_Orientation_Noise/src/check_noise.py",
+      "MAPS_DENOISING_Orientation_Noise/src/eval_model.sh",
+      "MAPS_DENOISING_Orientation_Noise/src/inference.py",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_maps.py",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_method_comparison.py",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_mtex_maps.py",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_training.py",
+      "MAPS_DENOISING_Orientation_Noise/src/score_dataset.py",
+      "MAPS_DENOISING_Orientation_Noise/src/score_filter_denoising.py",
+      "MAPS_DENOISING_Orientation_Noise/src/summarize_test_grid.py",
+      "MAPS_DENOISING_Orientation_Noise/src/train.py",
+      "MAPS_DENOISING_Orientation_Noise/src/train_model.sh",
+      "MAPS_DENOISING_Orientation_Noise/src/train_model_cpu.sh"
+    ]
+  },
+  "time": "2026-10-13T04:55:22-04:00",
+  "host": "orchard-community-1",
+  "slurm_job": "156286",
+  "command": "/home/aiosman/miniconda3/envs/ebsd/bin/python score_dataset.py --clean-dir /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/clean_euler --noisy-dir /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter5_mis6 --results /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/mtex_out_scatter5_mis6/ --shape 128 128 --jobs 8 --all-maps --csv /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/figures/scatter5_mis6/scores_median.csv",
+  "config": null,
+  "args": {
+    "clean_dir": "/project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/clean_euler",
+    "noisy_dir": "/project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter5_mis6",
+    "results": "/project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/mtex_out_scatter5_mis6/",
+    "shape": [
+      128,
+      128
+    ],
+    "limit": 0,
+    "jobs": 8,
+    "all_maps": true,
+    "only": null,
+    "exclude": null,
+    "csv": "/project/community/aiosman/MAPS_DENOISING_Orientation_Noise/figures/scatter5_mis6/scores_median.csv"
+  }
+}

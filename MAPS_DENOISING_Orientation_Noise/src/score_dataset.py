@@ -4,21 +4,21 @@ Score denoised orientation maps over a whole dataset, not just one map.
 
 score_filter_denoising.py answers "how did each method do on map 1?". This
 answers "how does each method do across 500 maps?", which is the number a
-baseline claim actually rests on. Single-map medians move around by a few
+baseline claim actually rests on. Single-map scores move around by a few
 percent from map to map, so a difference between two methods on one map is not
 evidence of anything.
 
-Reported per method:
+Reported per method, all as MEANS (the statistic Hielscher et al. 2019 and
+Atindama et al. 2023 report, and one that counts a badly wrong region in full
+rather than ignoring it as a median would):
 
-    ALL        median disorientation over every pixel
-    CORRUPTED  median over the pixels the noise generator actually replaced
-    BOUNDARY   median over pixels touching a grain boundary
+    ALL        mean disorientation over every pixel
+    CORRUPTED  mean over the pixels the noise generator actually replaced
+    BOUNDARY   mean over pixels touching a grain boundary
     >10 deg    share of pixels still grossly wrong
 
-Each is computed per map first, then aggregated across maps, so every map
-carries equal weight regardless of how many pixels it has. The spread shown is
-the interquartile range across maps: if two methods differ by less than that,
-you have not separated them.
+Each is computed per map first, then averaged across maps, so every map carries
+equal weight. The spread shown is the standard deviation across maps.
 
 By default only maps where EVERY method produced an output are scored, so the
 columns are directly comparable. --all-maps relaxes that and reports the per
@@ -91,7 +91,7 @@ def index_dataset(clean_dir, noisy_dir, results_dir):
     return jobs
 
 
-def score_one(job, shape, stat="median"):
+def score_one(job, shape):
     """All metrics for one map. Returns {method: {metric: value}} or None."""
     n = int(np.prod(shape))
     try:
@@ -106,14 +106,12 @@ def score_one(job, shape, stat="median"):
     bad = np.load(job["mask"]).ravel().astype(bool) if job["mask"] else None
     bnd = boundary_mask(q_clean, shape)
 
-    agg = np.mean if stat == "mean" else np.median
-
     def metrics(q_test):
         d = disorientation_deg(q_clean, q_test)
         return {
-            "all": float(agg(d)),
-            "bad": float(agg(d[bad])) if bad is not None and bad.any() else np.nan,
-            "bnd": float(agg(d[bnd])) if bnd.any() else np.nan,
+            "all": float(d.mean()),
+            "bad": float(d[bad].mean()) if bad is not None and bad.any() else np.nan,
+            "bnd": float(d[bnd].mean()) if bnd.any() else np.nan,
             "gross": float(100.0 * (d > 10.0).mean()),
         }
 
@@ -136,12 +134,12 @@ def score_one(job, shape, stat="median"):
 
 
 def _worker(args):
-    job, shape, stat = args
-    return job["id"], score_one(job, shape, stat)
+    job, shape = args
+    return job["id"], score_one(job, shape)
 
 
 def aggregate(per_map, methods):
-    """Median and IQR across maps, per method per metric."""
+    """Mean and standard deviation across maps, per method per metric."""
     rows = {}
     for method in methods:
         vals = defaultdict(list)
@@ -153,8 +151,8 @@ def aggregate(per_map, methods):
         row = {"n": max((len(v) for v in vals.values()), default=0)}
         for k, v in vals.items():
             a = np.asarray(v)
-            row[k] = float(np.median(a))
-            row[k + "_iqr"] = float(np.percentile(a, 75) - np.percentile(a, 25))
+            row[k] = float(a.mean())
+            row[k + "_sd"] = float(a.std(ddof=1)) if len(a) > 1 else 0.0
         rows[method] = row
     return rows
 
@@ -171,12 +169,6 @@ def main():
     p.add_argument("--all-maps", action="store_true",
                    help="score every map even where some methods are missing "
                         "(default: only maps where all methods ran)")
-    p.add_argument("--metric", choices=["median", "mean"], default="median",
-                   help="per-map statistic. 'median' describes the typical "
-                        "pixel and is blind to a small tail; 'mean' is what "
-                        "Atindama et al. (2023) report and exposes the boundary "
-                        "pixels a smoothing filter gets badly wrong. Methods can "
-                        "rank differently under the two.")
     p.add_argument("--only", nargs="*", default=None,
                    help="score only these method names, in this order")
     p.add_argument("--exclude", nargs="*", default=None,
@@ -220,7 +212,7 @@ def main():
     print(f"scoring with {args.jobs} workers...", flush=True)
 
     per_map = {}
-    payload = [(j, shape, args.metric) for j in jobs]
+    payload = [(j, shape) for j in jobs]
     if args.jobs > 1:
         with ProcessPoolExecutor(max_workers=args.jobs) as pool:
             for i, (mid, scores) in enumerate(pool.map(_worker, payload, chunksize=4), 1):
@@ -245,20 +237,20 @@ def main():
     print(f"\nscored {len(per_map)} maps")
     print("=" * 96)
     print(f"{'method':<20}{'ALL':>16}{'CORRUPTED':>16}{'BOUNDARY':>16}{'>10 deg':>14}{'maps':>7}")
-    print(f"{'':<20}{'med (IQR) deg':>16}{'med (IQR) deg':>16}{'med (IQR) deg':>16}{'med %':>14}{'':>7}")
+    print(f"{'':<20}{'mean (sd) deg':>16}{'mean (sd) deg':>16}{'mean (sd) deg':>16}{'mean %':>14}{'':>7}")
     print("-" * 96)
     for m in methods:
         r = rows.get(m, {})
         if not r.get("n"):
             continue
-        cell = lambda k, w=16: f"{r[k]:.3f} ({r[k+'_iqr']:.3f})".rjust(w) if k in r else "-".rjust(w)
+        cell = lambda k, w=16: f"{r[k]:.3f} ({r[k+'_sd']:.3f})".rjust(w) if k in r else "-".rjust(w)
         print(f"{m:<20}{cell('all')}{cell('bad')}{cell('bnd')}"
               f"{r.get('gross', float('nan')):>14.2f}{r['n']:>7}")
     print("=" * 96)
 
     print("\nHow to read this")
-    print("  every figure is the median ACROSS MAPS of that map's own median")
-    print("  (IQR) is the spread across maps -- a gap smaller than this is not a result")
+    print("  every figure is the mean ACROSS MAPS of each map's own mean")
+    print("  (sd) is the spread across maps -- a gap smaller than this is not a result")
     print("  ALL       flattered by the 95% of pixels that were only lightly perturbed")
     print("  CORRUPTED did the method actually repair the pixels that were replaced?")
     print("  BOUNDARY  filters smear here; watch this when a method wins on ALL")
@@ -276,12 +268,11 @@ def main():
               f"boundary {best_all[1].get('bnd', float('nan')):.3f} deg)")
 
     if args.csv:
-        # The *_med column names predate --metric; with --metric mean they hold
-        # per-map means. The sidecar records which, with the full command.
+        # The sidecar records the full command and code version.
         prov = provenance(args=args)
         commit = prov["git"]["commit"]
         with open(args.csv, "w") as f:
-            f.write("map,method,all_med,bad_med,bnd_med,gross_pct,commit\n")
+            f.write("map,method,all_mean,bad_mean,bnd_mean,gross_pct,commit\n")
             for mid in sorted(per_map):
                 for method, s in sorted(per_map[mid].items()):
                     f.write(f"{mid},{method},{s['all']:.6f},{s['bad']:.6f},"

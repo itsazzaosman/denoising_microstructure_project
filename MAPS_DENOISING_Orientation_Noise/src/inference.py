@@ -115,14 +115,14 @@ def main():
 
             for b in range(q_out.shape[0]):
                 mid = int(ids[b])
-                stats["all"].append(d[b].median().item())
+                stats["all"].append(d[b].mean().item())
                 stats["gross"].append(100.0 * (d[b] > 10).float().mean().item())
-                stats["in_all"].append(d_in[b].median().item())
+                stats["in_all"].append(d_in[b].mean().item())
                 stats["in_gross"].append(100.0 * (d_in[b] > 10).float().mean().item())
                 if bad[b].any():
-                    stats["bad"].append(d[b][bad[b]].median().item())
+                    stats["bad"].append(d[b][bad[b]].mean().item())
                 if bnd[b].any():
-                    stats["bnd"].append(d[b][bnd[b]].median().item())
+                    stats["bnd"].append(d[b][bnd[b]].mean().item())
 
                 stem = f"map_{mid:05d}_clean_euler_noisy_noisy"
                 np.savetxt(outdir / f"{stem}__{args.method_name}.txt",
@@ -142,15 +142,15 @@ def main():
                                       "epoch": ck["epoch"] + 1,
                                       "trained_with_commit": trained_with}})
 
-    med = {k: float(np.median(v)) if v else float("nan") for k, v in stats.items()}
+    avg = {k: float(np.mean(v)) if v else float("nan") for k, v in stats.items()}
     print(f"\nwrote {written} maps in {time.time()-t0:.0f}s")
     print("=" * 74)
     print(f"{'':<22}{'ALL':>12}{'CORRUPTED':>12}{'BOUNDARY':>12}{'>10 deg':>12}")
     print("-" * 74)
-    print(f"{'noisy input':<22}{med['in_all']:>12.3f}{'':>12}{'':>12}"
-          f"{med['in_gross']:>12.2f}")
-    print(f"{args.method_name:<22}{med['all']:>12.3f}{med['bad']:>12.3f}"
-          f"{med['bnd']:>12.3f}{med['gross']:>12.2f}")
+    print(f"{'noisy input':<22}{avg['in_all']:>12.3f}{'':>12}{'':>12}"
+          f"{avg['in_gross']:>12.2f}")
+    print(f"{args.method_name:<22}{avg['all']:>12.3f}{avg['bad']:>12.3f}"
+          f"{avg['bnd']:>12.3f}{avg['gross']:>12.2f}")
     print("=" * 74)
     print("\nnow run:  make score-all NOISE=<set>   (scores this against every MTEX method)")
 

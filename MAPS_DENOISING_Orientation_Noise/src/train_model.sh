@@ -87,6 +87,6 @@ mkdir -p "$FIGURES"
     --noisy-dir "$DATA/noise_$NOISE" \
     --results   "$DATA/mtex_out_$NOISE/" \
     --shape 128 128 --jobs 8 --all-maps \
-    --csv "$FIGURES/scores_median.csv"
+    --csv "$FIGURES/scores_mean.csv"
 
 echo "Job finished: $(date)"

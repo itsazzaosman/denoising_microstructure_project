@@ -32,7 +32,7 @@ NOISY := $(NOISY_DIR)/map_$(MAP)_clean_euler_noisy.txt
 MASK  := $(NOISY).badmask.npy
 
 
-.PHONY: auth ls upload download backup score score-all plot maps check-orientation \
+.PHONY: auth ls upload download backup score score-all score-grid plot maps check-orientation \
         cache noise train-cpu train-gpu infer watch
 
 auth:
@@ -57,7 +57,7 @@ download:
 	gcloud storage rsync -r $(BUCKET)/DATASET_CHECKPOINTS/datasets ./DATASET_CHECKPOINTS/datasets
 
 # Print the numbers: how far each denoised map in $(RESULTS) sits from the
-# truth. Use this when you want to RANK the filters -- it gives the median
+# truth. Use this when you want to RANK the filters -- it gives the mean
 # error per filter, split out over the misindexed pixels (--mask) and the
 # grain boundaries, so you can see whether a filter wins overall or only in
 # the grain interiors. No pictures, just a table you can paste into notes.
@@ -73,7 +73,7 @@ score:
 # per filter, the familiar view) and maps_error.png (per-pixel error on a log
 # colour scale, where leftover misindexed pixels glow). Use this when you want
 # to SEE what a filter did to the grain boundaries and the speckle, rather
-# than just read a median. Note it takes no --mask.
+# than just read a mean. Note it takes no --mask.
 plot:
 	mkdir -p $(FIGURES)
 	python $(PROJ)/src/plot_maps.py \
@@ -84,11 +84,10 @@ plot:
 	  --out    $(FIGURES)/
 
 # The same table, but aggregated over every map MTEX has finished, not just
-# one. Use this for any claim you intend to defend: single-map medians wobble
-# between maps, so the (IQR) column tells you whether a gap between two methods
+# one. Use this for any claim you intend to defend: single-map scores wobble
+# between maps, so the (sd) column tells you whether a gap between two methods
 # is real. This is the number the model has to beat.
-# The CSV is named scores_median.csv so it does not overwrite the older,
-# mean-based figures/scatter5/scores.csv.
+# Every score is a mean: per map, then across maps (decided 2026-10-13).
 score-all:
 	mkdir -p $(FIGURES)
 	python $(PROJ)/src/score_dataset.py \
@@ -97,7 +96,20 @@ score-all:
 	  --results   $(RESULTS)/ \
 	  --shape     $(SHAPE) \
 	  --jobs      8 \
-	  --csv       $(FIGURES)/scores_median.csv
+	  --csv       $(FIGURES)/scores_mean.csv
+
+# Re-score every test set (the 28-set grid plus test_random) from the predictions
+# already saved in datasets/mtex_out_<set>/, without running any model: one
+# figures/<set>/scores_mean.csv per set. Run after evaluations or new MTEX
+# outputs land. CPU only, about 20 minutes.
+score-grid:
+	for S in $$(cat $(PROJ)/configs/test_grid.txt) test_random; do \
+	  mkdir -p $(PROJ)/figures/$$S; \
+	  python $(PROJ)/src/score_dataset.py --clean-dir $(CLEAN_DIR) \
+	    --noisy-dir $(PROJ)/datasets/noise_$$S --results $(PROJ)/datasets/mtex_out_$$S/ \
+	    --shape $(SHAPE) --jobs 8 --all-maps --csv $(PROJ)/figures/$$S/scores_mean.csv \
+	    | sed -n '/^method/,/^====/p'; \
+	done
 
 # Check the orientation maths the model will be built on against the numpy
 # reference. Run it after touching anything in orientation_torch.py.

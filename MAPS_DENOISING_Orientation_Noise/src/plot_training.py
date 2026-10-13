@@ -10,9 +10,9 @@ Panels
   loss              training and validation loss, same formula (denoise_loss)
   loss components   the validation loss split into its four terms
                     (one run), or the model-selection score (several runs)
-  ALL               validation median error over all pixels, vs the noisy input
-  BOUNDARY          validation median error on grain-boundary pixels
-  CORRUPTED         validation median error on the misindexed pixels
+  ALL               validation mean error over all pixels, vs the noisy input
+  BOUNDARY          validation mean error on grain-boundary pixels
+  CORRUPTED         validation mean error on the misindexed pixels
   gate              precision and recall of the misindexing detector
 
 The dotted vertical line is the epoch with the best validation score, i.e. the
@@ -119,10 +119,13 @@ def draw_curves(runs, path):
     first = next(iter(runs.values()))
     last_epoch = max(h[-1]["epoch"] for h in runs.values())
 
+    # Runs before 2026-10-13 validated with medians and did not record it.
+    stats = {h[0]["val"].get("stat", "median") for h in runs.values()}
+    stat = stats.pop() if len(stats) == 1 else "mean or median"
     titles = ["loss (training vs validation)",
               "validation loss components" if single else "validation score (lower = better)",
-              "validation ALL, median error (deg)", "validation BOUNDARY, median error (deg)",
-              "validation CORRUPTED, median error (deg)", "misindexing gate"]
+              f"validation ALL, {stat} error (deg)", f"validation BOUNDARY, {stat} error (deg)",
+              f"validation CORRUPTED, {stat} error (deg)", "misindexing gate"]
     for a, t in zip(ax, titles):
         a.set_xlim(0.5, last_epoch + 0.5)       # same epoch range on every panel
         a.set_title(t, color=INK, loc="left")

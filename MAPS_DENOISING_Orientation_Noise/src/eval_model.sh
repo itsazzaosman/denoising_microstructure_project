@@ -49,7 +49,7 @@ for SET in $SETS; do
         --noisy-dir "$EXP/datasets/noise_$SET" \
         --results   "$EXP/datasets/mtex_out_$SET/" \
         --shape 128 128 --jobs 8 --all-maps \
-        --csv "$EXP/figures/$SET/scores_median.csv"
+        --csv "$EXP/figures/$SET/scores_mean.csv"
 done
 
 echo "Job finished: $(date)"

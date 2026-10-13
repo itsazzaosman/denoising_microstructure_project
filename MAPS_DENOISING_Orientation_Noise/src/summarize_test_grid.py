@@ -2,10 +2,10 @@
 """
 Measure the input noise of every test set in configs/test_grid.txt.
 
-Per set, over all its maps (per-map statistic, then the median across maps,
-as score_dataset.py does):
+Per set, over all its maps (per-map mean, then the mean across maps, as
+score_dataset.py does):
 
-  ALL         median disorientation of the noisy input to the truth, deg
+  ALL         mean disorientation of the noisy input to the truth, deg
   INTERIOR    the same over pixels that were not misindexed: the scatter alone
   BOUNDARY    the same over grain-boundary pixels
   misindexed  share of pixels replaced, %
@@ -44,7 +44,7 @@ def one_map(args):
            else np.zeros(len(qc), dtype=bool))
     d = disorientation_deg(qn, qc)
     bnd = boundary_mask(qc, SHAPE)
-    return (np.median(d), np.median(d[~bad]), np.median(d[bnd]),
+    return (d.mean(), d[~bad].mean(), d[bnd].mean(),
             100 * bad.mean(), 100 * (d > 10).mean())
 
 
@@ -61,11 +61,11 @@ def main():
             jobs = [(ROOT / f"datasets/clean_euler/map_{i}_clean_euler.txt", f)
                     for i, f in zip(ids, noisy)]
             stats = np.array(list(pool.map(one_map, jobs, chunksize=8)))
-            med = np.median(stats, axis=0)
+            avg = stats.mean(axis=0)
             rows.append({"set": name, "scatter_max_deg": cfg["scatter"],
                          "misindex_pct": round(100 * cfg["misindex"]), "maps": len(noisy),
-                         "all": med[0], "interior": med[1], "boundary": med[2],
-                         "misindexed_pct": med[3], "gross_pct": med[4]})
+                         "all": avg[0], "interior": avg[1], "boundary": avg[2],
+                         "misindexed_pct": avg[3], "gross_pct": avg[4]})
             r = rows[-1]
             print(f"{name:<16} {r['maps']:>4} maps   ALL {r['all']:6.3f}  INTERIOR {r['interior']:6.3f}  "
                   f"BOUNDARY {r['boundary']:6.3f}  misindexed {r['misindexed_pct']:5.2f}%  "

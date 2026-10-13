@@ -213,9 +213,8 @@ One seed is acceptable for A2–A5 if you say so in the paper.
 for many comparisons.
 
 Report per condition:
-- Current four: ALL, CORRUPTED, BOUNDARY (medians), and >10° (%).
-- **Mean** disorientation too, so numbers can be set beside Atindama and
-  Hielscher (they use the mean).
+- The four columns, all **means** (decided 2026-10-13): ALL, CORRUPTED,
+  BOUNDARY, and >10° (%). The mean is what Atindama and Hielscher report.
 - **Fraction of noise removed** = 1 − output error / input error. This
   makes levels comparable and answers the "same percentage" question
   directly.
@@ -230,9 +229,9 @@ Statistics:
   independent, so pixel-level tests overstate certainty.
 - For each map, compute model error − best-baseline error (a *paired*
   difference: same map, same noise).
-- Test with the **Wilcoxon signed-rank test** (safe for skewed errors), and
-  give a **bootstrap 95% confidence interval** of the median difference
-  (resample maps 10,000 times).
+- Test with a **paired t-test** on the per-map means (500 maps is plenty
+  for it), and give a **bootstrap 95% confidence interval** of the mean
+  difference (resample maps 10,000 times).
 - Correct for the many comparisons with **Holm's method**.
 - Claim a win only if the interval excludes zero **and** the gap is bigger
   than the seed spread.

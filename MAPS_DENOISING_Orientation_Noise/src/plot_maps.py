@@ -219,7 +219,7 @@ def main():
     axes = np.atleast_1d(axes).ravel()
     for ax, (name, q, d) in zip(axes, panels):
         ax.imshow(grid(ipf_z_color(q), shape, crop), interpolation="nearest")
-        title = name if d is None else f"{name}\nmedian {np.median(d):.3f}$\\degree$"
+        title = name if d is None else f"{name}\nmean {d.mean():.3f}$\\degree$"
         ax.set_title(title, fontsize=9)
         ax.set_xticks([]); ax.set_yticks([])
     for ax in axes[len(panels):]:

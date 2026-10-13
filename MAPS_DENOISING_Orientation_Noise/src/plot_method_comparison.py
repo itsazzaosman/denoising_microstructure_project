@@ -3,15 +3,14 @@
 Bar chart comparing denoising methods, for the abstract/paper.
 
 Reads the per-map CSV that score_dataset.py writes (--csv) and aggregates it the
-same way the printed table does: the statistic per map, then the median across
-maps. Falls back to a set of recorded numbers when no CSV is given, so the
+same way the printed table does: the mean per map, then the mean across maps. Falls back to a set of recorded numbers when no CSV is given, so the
 figure can be regenerated while the underlying data is being restored.
 
 Usage
 -----
     # from a scoring run
-    python src/score_dataset.py ... --csv figures/scatter5/scores.csv --metric mean
-    python src/plot_method_comparison.py --csv figures/scatter5/scores.csv \
+    python src/score_dataset.py ... --csv figures/scatter5/scores_mean.csv
+    python src/plot_method_comparison.py --csv figures/scatter5/scores_mean.csv \
         --out figures/scatter5/method_comparison.png \
         --title "Mean per-pixel disorientation, 5 deg scatter (10 maps)"
 
@@ -92,7 +91,11 @@ PRETTY = {"mean": "mean", "median": "median", "spline": "spline",
 
 
 def from_csv(path, metric):
-    """Per-map statistic -> median across maps, matching score_dataset.py."""
+    """Per-map mean -> mean across maps, matching score_dataset.py.
+
+    Reads the current columns (all_mean, bnd_mean) and, for CSVs written before
+    2026-10-13, the old ones (all_med, bnd_med; those files hold whichever
+    statistic --metric chose at the time)."""
     import csv
     from collections import defaultdict
     allv, bndv = defaultdict(list), defaultdict(list)
@@ -100,11 +103,11 @@ def from_csv(path, metric):
         for r in csv.DictReader(f):
             m = r["method"]
             try:
-                allv[m].append(float(r["all_med"]))
-                bndv[m].append(float(r["bnd_med"]))
+                allv[m].append(float(r.get("all_mean", r.get("all_med"))))
+                bndv[m].append(float(r.get("bnd_mean", r.get("bnd_med"))))
             except (ValueError, KeyError):
                 continue
-    rows = [(PRETTY.get(m, m), float(np.median(allv[m])), float(np.median(bndv[m])))
+    rows = [(PRETTY.get(m, m), float(np.mean(allv[m])), float(np.mean(bndv[m])))
             for m in allv if allv[m]]
     return sorted(rows, key=lambda r: -r[1])
 
@@ -189,8 +192,8 @@ def main():
     p.add_argument("--csv", default=None, help="per-map CSV from score_dataset.py")
     p.add_argument("--recorded", default=None, choices=sorted(RECORDED),
                    help="use the recorded numbers instead of a CSV")
-    p.add_argument("--metric", default="mean", choices=["mean", "median"],
-                   help="only labels the axis; the CSV already holds one statistic")
+    p.add_argument("--metric", default="mean", choices=["mean"],
+                   help="only labels the axis; every score is a mean")
     p.add_argument("--out", required=True)
     p.add_argument("--title", default=None)
     p.add_argument("--compare", nargs="*", default=None,

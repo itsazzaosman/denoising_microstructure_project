@@ -110,7 +110,7 @@ def in_display_order(names):
 
 
 def stats(d):
-    return f"mean {d.mean():.2f}$\\degree$  median {np.median(d):.2f}$\\degree$"
+    return f"mean {d.mean():.2f}$\\degree$"
 
 
 def plot_map(mid, args):
@@ -175,15 +175,15 @@ def plot_map(mid, args):
 
     # ---- rows 2 and 3: each filter's output, and its error ----
     print(f"map {mid}")
-    print(f"  {'method':<18}{'mean':>8}{'median':>8}{'>10deg %':>10}")
-    print(f"  {'MTEX input':<18}{d_in.mean():8.3f}{np.median(d_in):8.3f}"
+    print(f"  {'method':<18}{'mean':>8}{'>10deg %':>10}")
+    print(f"  {'MTEX input':<18}{d_in.mean():8.3f}"
           f"{100 * (d_in > 10).mean():10.2f}")
     ipf_row, err_row = axes[1], axes[2]
     for j, name in enumerate(names):
         q, d = results[name]
         ipf_panel(ipf_row[j], name, q)
         err_panel(err_row[j], name, d)
-        print(f"  {name:<18}{d.mean():8.3f}{np.median(d):8.3f}"
+        print(f"  {name:<18}{d.mean():8.3f}"
               f"{100 * (d > 10).mean():10.2f}")
     for ax in list(ipf_row[len(names):]) + list(err_row[len(names):]):
         ax.axis("off")
