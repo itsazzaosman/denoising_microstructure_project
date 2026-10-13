@@ -1,0 +1,307 @@
+% ---------------------------------------------------------------------------
+% Results (first draft, 2026-10-13).
+% Numbers come from figures/results/blind_learned_results.csv (made by
+% src/summarize_results.py), the paired tests on figures/scatter{5,7}/scores_mean.csv,
+% and the repair counts computed from the saved predictions of the three runs.
+% Figures are in figures/paper/: copy them to the figures/ folder of the paper.
+% \cite keys match paper/references.bib.
+% ---------------------------------------------------------------------------
+
+\section{Results}
+
+\subsection{Measuring the denoising error}
+
+To compare a denoised map with the clean map we need the angle between two
+orientations. For a cubic crystal the same orientation can be written in 24
+equivalent ways, so a plain difference between two sets of Euler angles is not
+a valid measure~\cite{atindama2023restoration,ding2020indexing}. We therefore
+use the disorientation angle. Let $\mathbf{q}$ and $\mathbf{q}'$ be the unit
+quaternions of two orientations. Their misorientation is
+\begin{equation}
+  \Delta\mathbf{q} = \mathbf{q}'\,\mathbf{q}^{-1},
+  \label{eq:misorientation}
+\end{equation}
+and the disorientation angle is the smallest rotation angle among the
+symmetrically equivalent forms of $\Delta\mathbf{q}$,
+\begin{equation}
+  \delta(\mathbf{q}, \mathbf{q}') = \min_{\mathbf{s} \in \mathcal{S}}
+  \; 2 \arccos \left| \left( \mathbf{s}\, \Delta\mathbf{q} \right)_0 \right|,
+  \label{eq:disorientation}
+\end{equation}
+where $\mathcal{S}$ is the set of the 24 proper rotations of the cubic point
+group and $(\cdot)_0$ is the scalar part of a quaternion.
+
+For a map $m$ with the set of pixels $\Omega$ ($|\Omega| = 128 \times 128 =
+16{,}384$), denoised map $u_m$ and true map $u^0_m$, the denoising error is the
+mean per-pixel disorientation,
+\begin{equation}
+  e_m = \frac{1}{|\Omega|} \sum_{\mathbf{x} \in \Omega}
+        \delta\big(u_m(\mathbf{x}), u^0_m(\mathbf{x})\big).
+  \label{eq:error}
+\end{equation}
+We also compute the same mean over two subsets of the pixels: the
+grain-boundary pixels $B_m$, which have at least one of their four neighbours
+in a different grain of the true map, and the misindexed pixels $M_m$, which
+the noise generator replaced. We call the three measures ALL ($e_m$), BOUNDARY
+($e^B_m$) and CORRUPTED ($e^M_m$). Last, the percentage of pixels that are
+still grossly wrong is
+\begin{equation}
+  g_m = \frac{100}{|\Omega|} \sum_{\mathbf{x} \in \Omega}
+        \mathbb{1}\Big[\delta\big(u_m(\mathbf{x}), u^0_m(\mathbf{x})\big) > 10^\circ\Big],
+  \label{eq:gross}
+\end{equation}
+where $\mathbb{1}[\cdot]$ is 1 when the condition holds and 0 otherwise.
+
+Each test set has $N = 500$ maps. For each set we report the mean over the
+maps, $\bar{e} = \frac{1}{N}\sum_{m=1}^{N} e_m$. Since every map has the same
+number of pixels, $\bar{e}$ is also the mean disorientation over all
+$N|\Omega|$ pixels of the set. We trained the network three times, with
+different random seeds. Unless stated otherwise, the value given for our
+method is the mean of the three runs, and the $\pm$ value is the standard
+deviation across the runs, which shows how much a result depends on the
+random start of training. To compare noise levels we also use the fraction of
+the input error that the denoising removed,
+\begin{equation}
+  R = 1 - \frac{\bar{e}_{\text{out}}}{\bar{e}_{\text{in}}}.
+  \label{eq:removed}
+\end{equation}
+
+To test whether two methods differ, we use the paired $t$-test on the
+per-map errors~\cite{neter1996applied}, as Atindama et
+al.~\cite{atindama2023restoration} did. For the same $n$ maps let
+$d_m = e^{(1)}_m - e^{(2)}_m$ be the difference between the errors of the two
+methods on map $m$, $\bar{d}$ the mean and $S_d$ the standard deviation of the
+$d_m$. The test statistic
+\begin{equation}
+  T = \frac{\bar{d}}{S_d / \sqrt{n}}
+  \label{eq:ttest}
+\end{equation}
+has a $t$-distribution with $n-1$ degrees of freedom. We take $p < 0.05$ as
+statistically significant.
+
+\subsection{Training}
+
+Figure~\ref{fig:training_loss} shows the training and validation loss of the
+three runs. Each run had 60 epochs of 2{,}437 batches of 16 maps, about
+5.8~min per epoch and 5.8~h per run on one NVIDIA H100 GPU. The training and
+validation losses fall together and stay close at every epoch, so the network
+does not overfit the training maps. Both flatten after about epoch 45. For
+each run we kept the checkpoint with the best validation score, which came from
+epochs 58, 50 and 58.
+% NOTE (for the authors): these three runs chose the checkpoint with a score
+% built from MEDIAN errors (the code switched to means on 2026-10-13). Either
+% say so in the Methods or retrain before submission.
+On the validation maps the gate, the part of the network that marks a pixel as
+misindexed, found 98.8\% of the misindexed pixels (recall), and 99.9\% of the
+pixels it marked were truly misindexed (precision). The three runs gave the
+same values to the third decimal.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.48\textwidth]{figures/training_loss.pdf}
+  \caption{Training loss (dashed) and validation loss (solid) of the three
+    training runs. The two losses stay close throughout, which shows that the
+    network does not overfit the training maps.}
+  \label{fig:training_loss}
+\end{figure}
+
+\subsection{Maps with mixed noise levels}
+
+We first report one overall result. In the mixed test set, each of the 500
+test maps has its own noise level, drawn at random from the same ranges as in
+training: $\theta_{\max}$ between $0^\circ$ and $15^\circ$ and $p$ between 0
+and 10\%. Table~\ref{tab:mixed} shows the four error measures. The mean
+per-pixel error drops from $5.69^\circ$ to $0.589 \pm 0.015^\circ$, so 89.6\%
+of the error is removed. The misindexed pixels, which are $40.7^\circ$ from
+their true orientation on average, end $2.47^\circ$ from it, and the
+percentage of pixels more than $10^\circ$ wrong falls from 11.27\% to 0.23\%.
+
+\begin{table}[t]
+  \centering
+  \caption{Mean per-pixel errors on the mixed test set (500 maps, each with
+    its own random noise level). For our method, mean $\pm$ standard deviation
+    over three training runs. $R$ is the fraction of the error removed,
+    Eq.~(\ref{eq:removed}).}
+  \label{tab:mixed}
+  \small
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    Measure & Noisy input & Ours & $R$ \\
+    \midrule
+    ALL ($^\circ$)          & 5.692  & $0.589 \pm 0.015$ & 89.6\% \\
+    BOUNDARY ($^\circ$)     & 8.554  & $1.197 \pm 0.020$ & 86.0\% \\
+    CORRUPTED ($^\circ$)    & 40.709 & $2.466 \pm 0.032$ & 93.9\% \\
+    $>10^\circ$ (\% pixels) & 11.27  & $0.226 \pm 0.002$ & 98.0\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Effect of the noise level}
+
+Tables~\ref{tab:grid_all} and~\ref{tab:grid_gross} give the results for the
+28 test conditions, and Figure~\ref{fig:vs_scatter} plots the errors against
+the maximum scatter angle. The standard deviation across the three runs is at
+most $0.032^\circ$ for the mean error and 0.006 percentage points for the
+percentage of gross errors, far smaller than any of the differences discussed
+below.
+
+The error left after denoising grows in proportion to the scatter. With scatter
+alone ($p = 0$), the mean error goes from $0.068^\circ$ at
+$\theta_{\max} = 1^\circ$ to $0.922^\circ$ at $\theta_{\max} = 15^\circ$, but
+the fraction removed stays between 86.5\% and 88.1\% at every level. This is
+what we expect from averaging. The network replaces each pixel by a weighted
+average of its neighbours in the same grain, and averaging random errors
+shrinks them by a fixed factor, whatever their size. So the remaining error is
+a fixed fraction of the input error. When misindexing is added, the fraction
+removed is larger, between 88.1\% and 93.4\%, because the misindexed pixels
+carry a large part of the input error and most of them are repaired.
+
+With misindexing, the percentage of grossly wrong pixels
+(Table~\ref{tab:grid_gross}) falls from about $p$ in the input to between
+0.10\% and 0.58\% after denoising. At
+$\theta_{\max} = 12^\circ$ and $15^\circ$, scatter alone puts 16.7\% and 33.4\%
+of the pixels beyond $10^\circ$; after denoising only 0.02\% and 0.05\% remain.
+
+\begin{table*}[t]
+  \centering
+  \caption{Mean per-pixel error, ALL ($^\circ$), for the 28 test conditions,
+    500 maps each: maximum scatter angle $\theta_{\max}$ and percentage of
+    misindexed pixels $p$. Ours is the mean of three training runs (standard
+    deviation across runs $\leq 0.032^\circ$).}
+  \label{tab:grid_all}
+  \begin{tabular}{@{}c cc cc cc cc@{}}
+    \toprule
+    & \multicolumn{2}{c}{$p = 0\%$} & \multicolumn{2}{c}{$p = 3\%$}
+    & \multicolumn{2}{c}{$p = 6\%$} & \multicolumn{2}{c}{$p = 9\%$} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(l){8-9}
+    $\theta_{\max}$ ($^\circ$) & Input & Ours & Input & Ours & Input & Ours & Input & Ours \\
+    \midrule
+     1 & 0.500 & 0.068 & 1.708 & 0.128 & 2.913 & 0.196 & 4.121 & 0.273 \\
+     3 & 1.500 & 0.186 & 2.679 & 0.248 & 3.853 & 0.317 & 5.031 & 0.396 \\
+     5 & 2.501 & 0.301 & 3.649 & 0.365 & 4.793 & 0.437 & 5.942 & 0.518 \\
+     7 & 3.501 & 0.418 & 4.619 & 0.485 & 5.733 & 0.560 & 6.852 & 0.645 \\
+     9 & 4.501 & 0.538 & 5.589 & 0.609 & 6.673 & 0.688 & 7.762 & 0.777 \\
+    12 & 6.002 & 0.724 & 7.044 & 0.803 & 8.084 & 0.891 & 9.127 & 0.989 \\
+    15 & 7.502 & 0.922 & 8.500 & 1.013 & 9.494 & 1.111 & 10.492 & 1.222 \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+  \centering
+  \caption{Percentage of pixels more than $10^\circ$ from their true
+    orientation, Eq.~(\ref{eq:gross}), for the same conditions as
+    Table~\ref{tab:grid_all}. Ours is the mean of three training runs
+    (standard deviation across runs $\leq 0.006$ percentage points).}
+  \label{tab:grid_gross}
+  \begin{tabular}{@{}c cc cc cc cc@{}}
+    \toprule
+    & \multicolumn{2}{c}{$p = 0\%$} & \multicolumn{2}{c}{$p = 3\%$}
+    & \multicolumn{2}{c}{$p = 6\%$} & \multicolumn{2}{c}{$p = 9\%$} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(l){8-9}
+    $\theta_{\max}$ ($^\circ$) & Input & Ours & Input & Ours & Input & Ours & Input & Ours \\
+    \midrule
+     1 & 0.00 & 0.00 & 2.98 & 0.10 & 5.96 & 0.23 & 8.94 & 0.37 \\
+     3 & 0.00 & 0.00 & 2.98 & 0.11 & 5.96 & 0.23 & 8.94 & 0.38 \\
+     5 & 0.00 & 0.00 & 2.98 & 0.11 & 5.96 & 0.24 & 8.94 & 0.39 \\
+     7 & 0.00 & 0.00 & 2.98 & 0.12 & 5.96 & 0.25 & 8.94 & 0.41 \\
+     9 & 0.00 & 0.00 & 2.98 & 0.13 & 5.96 & 0.27 & 8.94 & 0.43 \\
+    12 & 16.66 & 0.02 & 19.14 & 0.15 & 21.62 & 0.31 & 24.10 & 0.49 \\
+    15 & 33.35 & 0.05 & 35.33 & 0.21 & 37.30 & 0.38 & 39.29 & 0.58 \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/results_vs_scatter.pdf}
+  \caption{Mean per-pixel error against the maximum scatter angle, for each
+    percentage of misindexed pixels: (left) all pixels, (middle) grain-boundary
+    pixels, (right) misindexed pixels. Dashed lines: noisy input. Solid lines
+    with markers: our method, mean $\pm$ standard deviation over three training
+    runs (the error bars are smaller than the markers). Logarithmic vertical
+    axes.}
+  \label{fig:vs_scatter}
+\end{figure*}
+
+\subsection{Repair of misindexed pixels}
+
+A misindexed pixel carries no information about its true orientation, so it
+must be rebuilt from its neighbours. Over the 21 test conditions with
+misindexing, between 91.7\% ($\theta_{\max} = 15^\circ$, $p = 9\%$) and 95.5\%
+($\theta_{\max} = 1^\circ$, $p = 3\%$) of the misindexed pixels end within
+$5^\circ$ of their true orientation. Their mean error drops from about
+$40.7^\circ$ to between $2.02^\circ$ and $3.26^\circ$
+(Fig.~\ref{fig:vs_scatter}, right). The repair becomes slightly harder as the
+scatter grows. A likely reason is that a misindexed pixel whose random
+orientation happens to lie close to the true one is hard to tell apart from a
+strongly scattered pixel.
+
+\subsection{Where the remaining errors are}
+
+Figure~\ref{fig:examples} shows one test map under three noise conditions.
+The denoised maps are close to the true map of Fig.~\ref{fig:noise_examples}(a),
+even at $\theta_{\max} = 15^\circ$ where the grains in the input are hard to
+see. In the error maps of the denoised maps, the remaining error follows the
+grain boundaries. The numbers confirm this. In every test condition, between
+92.5\% and 99.7\% of the pixels that remain more than $10^\circ$ wrong lie on a
+grain boundary, although boundary pixels make up only 17\% of a map. With
+misindexing, most of these pixels (72--98\%) are misindexed pixels on a
+boundary. Such a pixel has neighbours from two grains, and the network
+sometimes gives it the orientation of the wrong grain. For the same reason the
+BOUNDARY error is always higher than the ALL error
+(Fig.~\ref{fig:vs_scatter}, middle).
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/denoised_examples.pdf}
+  \caption{Test map 1 (Fig.~\ref{fig:noise_examples}(a)) denoised by our
+    method (run 1) under three noise conditions, one per row. From left:
+    noisy input and denoised map (IPF-Z colours), and the disorientation of
+    each to the true map (logarithmic colour scale). The mean per-pixel error
+    of each map is given above it. The remaining error follows the grain
+    boundaries.}
+  \label{fig:examples}
+\end{figure*}
+
+\subsection{Comparison with MTEX filters (preliminary)}
+
+So far the MTEX filters~\cite{hielscher2019denoising} have been run on only the
+first 10 test maps of two scatter-only conditions, $\theta_{\max} = 5^\circ$
+and $7^\circ$, with their default parameters. Table~\ref{tab:mtex} compares
+them with our method on these maps. Our method has a lower mean error than the
+mean, median, Kuwahara, half-quadratic and infimal-convolution filters on all
+10 maps at both levels, and the paired $t$-tests give $p < 0.001$. The spline
+filter is the closest: its mean error is $0.403^\circ$ against our
+$0.300^\circ$ at $\theta_{\max} = 5^\circ$, and $0.601^\circ$ against
+$0.416^\circ$ at $\theta_{\max} = 7^\circ$. However, the spline error changes
+a lot from map to map (standard deviation $0.23^\circ$ and $0.30^\circ$,
+against $0.009^\circ$ and $0.012^\circ$ for ours). Our method is lower on 6 and
+7 of the 10 maps, and with only 10 maps the difference is not statistically
+significant ($p = 0.17$ and $p = 0.08$). A full comparison on all 500 test
+maps, with filter parameters tuned for each noise level and with misindexed
+pixels, is in progress.
+
+\begin{table}[t]
+  \centering
+  \caption{Mean per-pixel error ALL ($^\circ$) on test maps 1--10, scatter
+    only: mean (standard deviation across the 10 maps). Ours is averaged over
+    three training runs. $p$-values of the paired $t$-test against our method:
+    *** $p < 0.001$; n.s.\ not significant ($p \geq 0.05$).}
+  \label{tab:mtex}
+  \small
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Method & $\theta_{\max} = 5^\circ$ & $\theta_{\max} = 7^\circ$ \\
+    \midrule
+    Noisy input         & 2.502              & 3.503 \\
+    Mean                & 0.986 (0.016) ***  & 1.383 (0.017) *** \\
+    Median              & 0.408 (0.014) ***  & 0.575 (0.019) *** \\
+    Kuwahara            & 0.977 (0.013) ***  & 1.371 (0.017) *** \\
+    Spline              & 0.403 (0.226) n.s. & 0.601 (0.301) n.s. \\
+    Half-quadratic      & 1.824 (0.022) ***  & 2.569 (0.030) *** \\
+    Infimal convolution & 1.916 (0.015) ***  & 2.903 (0.022) *** \\
+    \textbf{Ours}       & \textbf{0.300} (0.009) & \textbf{0.416} (0.012) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
