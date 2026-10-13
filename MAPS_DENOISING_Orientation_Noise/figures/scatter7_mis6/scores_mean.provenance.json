@@ -1,0 +1,41 @@
+{
+  "git": {
+    "commit": "c556220badde0f9b3ae584de873d99c639b0f64e-dirty",
+    "dirty_files": [
+      "MAPS_DENOISING_Orientation_Noise/src/check_noise.py",
+      "MAPS_DENOISING_Orientation_Noise/src/eval_model.sh",
+      "MAPS_DENOISING_Orientation_Noise/src/inference.py",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_maps.py",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_method_comparison.py",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_mtex_maps.py",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_training.py",
+      "MAPS_DENOISING_Orientation_Noise/src/score_dataset.py",
+      "MAPS_DENOISING_Orientation_Noise/src/score_filter_denoising.py",
+      "MAPS_DENOISING_Orientation_Noise/src/summarize_test_grid.py",
+      "MAPS_DENOISING_Orientation_Noise/src/train.py",
+      "MAPS_DENOISING_Orientation_Noise/src/train_model.sh",
+      "MAPS_DENOISING_Orientation_Noise/src/train_model_cpu.sh",
+      "MAPS_DENOISING_Orientation_Noise/src/summarize_results.py"
+    ]
+  },
+  "time": "2026-10-13T06:00:31-04:00",
+  "host": "orchard-login-001",
+  "slurm_job": null,
+  "command": "/home/aiosman/miniconda3/bin/python MAPS_DENOISING_Orientation_Noise/src/score_dataset.py --clean-dir MAPS_DENOISING_Orientation_Noise/datasets/clean_euler --noisy-dir MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter7_mis6 --results MAPS_DENOISING_Orientation_Noise/datasets/mtex_out_scatter7_mis6/ --shape 128 128 --jobs 8 --all-maps --csv MAPS_DENOISING_Orientation_Noise/figures/scatter7_mis6/scores_mean.csv",
+  "config": null,
+  "args": {
+    "clean_dir": "MAPS_DENOISING_Orientation_Noise/datasets/clean_euler",
+    "noisy_dir": "MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter7_mis6",
+    "results": "MAPS_DENOISING_Orientation_Noise/datasets/mtex_out_scatter7_mis6/",
+    "shape": [
+      128,
+      128
+    ],
+    "limit": 0,
+    "jobs": 8,
+    "all_maps": true,
+    "only": null,
+    "exclude": null,
+    "csv": "MAPS_DENOISING_Orientation_Noise/figures/scatter7_mis6/scores_mean.csv"
+  }
+}
