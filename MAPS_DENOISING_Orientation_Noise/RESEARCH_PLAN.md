@@ -1,9 +1,9 @@
 # Research plan: learned denoising of EBSD orientation maps
 
 Written 2026-10-11, after reading the 8 papers in the `papers_ebsd_ml` Drive
-folder and checking the current code. Each step says **why** (which weakness
-in the literature or in our pipeline it fixes), **what to do**, and **done
-when**. Steps are tagged **MUST**, **SHOULD** or **NICE**.
+folder. Rewritten 2026-10-14 as **what is done** (Section 4) and **what
+remains** (Section 5), checked against the code, data and paper on that day.
+Tags: **MUST**, **SHOULD**, **NICE**.
 
 ---
 
@@ -45,306 +45,292 @@ the 8 papers does all of these.
 
 ---
 
-## 3. Problems in our current pipeline (fix before final runs)
+## 3. Where we are (2026-10-14)
 
-These were found by reading the code and the paper limitations side by side.
+| Part | Status |
+|---|---|
+| Data, splits, 28 test sets + mixed set | **Done** |
+| Blind model, 3 seeds, scored on all 29 test sets | **Done** |
+| MTEX filters (6 `clean-*`, maps 1–10, 29 sets) | **Running** on the Windows PC |
+| Model vs MTEX comparison | Waiting for the MTEX results |
+| Local-mean-only baseline and ablations | Not started |
+| Statistics (bootstrap, Holm, boundary F1) | Not started |
+| Robustness tests | Not started |
+| Real data (ni_gain) | Not started |
+| Paper | Abstract, Methods (data, noise, MTEX filters) and a Results draft written. Introduction, Related work, Network, Training, Discussion and Conclusion still empty. |
 
-1. **Data are not on disk.** `datasets/` and all `.pth` files are missing
-   locally (they are safe in `gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/`).
-   The nightly backup has logged an error since 10 Oct because the folder is gone.
-2. **Unfair baselines.** MTEX ran with default parameters, the same at every
-   noise level, while our model was retrained for each level. Atindama's whole
-   paper is about this tuning problem, so a reviewer will spot it at once.
-3. **MTEX ran on 10 maps only** (maps 1–10). That is the same weakness as
-   Atindama. Too few for statistics.
-4. **MTEX grain threshold is too small for high scatter.** `calcGrains(...,
-   10*degree)`: at 9° scatter two neighbouring pixels of one grain can differ
-   by up to ~18°, so grains get split. Also, the "variant B" `for` line is
-   commented out in the current `src/run_mtex_baseline.m`, so only the last
-   filter runs in that block.
-5. **Symmetry bug risk in the local mean (tested today).** A cubic
-   orientation can be written 24 equivalent ways (*symmetry variants*). Real
-   vendor files often store neighbouring pixels of one grain in different
-   variants. Our local mean aligns neighbours by sign only, so it drops them.
-   Test on a toy map at 5° scatter: **0.31° error → 1.34°** when each pixel
-   is stored as a random variant (worst case; same physical data). Our
-   synthetic data never contain this, so the problem is invisible in our
-   scores but will show up on real data.
-6. **The model's main feature is untested right now.** The gate/replace heads
-   exist for misindexing, but the current data are scatter-only (gate
-   precision/recall = 0). The misindexing test set was deleted.
-7. **Noise levels are far above real EBSD.** Our 5/7/9° sets have 2.5–4.5°
-   mean error. Atindama used 0.56–1.45°. Ding shows real methods differ by
-   ~1–1.5°. Our earlier 1° set (0.5° mean) was realistic. High levels can stay
-   as a stress test, but they cannot be the main result.
-8. **Most of the scatter removal comes from the classical local mean**
-   (README, and the 11% ratio found earlier). Without a "local mean only"
-   baseline, a reviewer can say the gain is not from learning.
-9. **One seed, not converged.** One training run per model; the 9° model was
-   still improving at epoch 40. The `--mean-tol` used is unknown until the
-   `.pth` files are restored (it is saved inside them).
+### The problems found on 2026-10-11, and their status
+
+| # | Problem | Status |
+|---|---|---|
+| 1 | Data and checkpoints not on disk | Fixed: restored from GCS |
+| 2 | MTEX not tuned, model retrained per level | **Open.** The model is now one blind model, but the MTEX filters are still not tuned (see Remaining). |
+| 3 | MTEX on 10 maps only | Kept on purpose: 10 maps per set, now for all 29 sets (decided 2026-10-14) |
+| 4 | MTEX grain threshold too small; variant-B loop commented out | Fixed: threshold max(10°, 2θmax); script rewritten |
+| 5 | Local mean aligned neighbours by sign only | Fixed: aligned over all 24 cubic variants (2026-10-11) |
+| 6 | No misindexing test set | Fixed: misindexing 3, 6 and 9% in the grid |
+| 7 | Noise levels far above real EBSD | Fixed: 1° and 3° levels added |
+| 8 | No "local mean only" baseline | **Open** (A1 below) |
+| 9 | One seed, not converged | Fixed: 3 seeds of 60 epochs. Best epochs 58, 50, 58, so two runs were still improving near the end (see Remaining). |
 
 ---
 
-## 4. The plan, step by step
+## 4. Done
 
-### Step 0 — Restore and freeze (MUST, do first)
+### Pipeline and data
+- [x] Data and checkpoints restored from GCS; the nightly sync works again.
+- [x] One file for all data locations: `src/paths.py` (2026-10-14).
+- [x] Results split into two folders (2026-10-14):
+  `datasets/results_test_set_model/<set>/` (network) and
+  `datasets/results_test_set_mtex/<set>/` (MTEX). The September 2026 MTEX
+  outputs are kept apart in `datasets/results_test_set_mtex_old/`.
+- [x] One config file per experiment in `configs/`; the git commit is saved
+  next to every results file (`*.provenance.json`).
+- [x] All commands to train, test and plot in `COMMANDS.md`.
+- [x] Splits: test maps 1–500, validation 501–1000, training 1001–40000
+  (38,998 maps; 2 broken maps left out).
 
-- [x] Restore data and checkpoints:
-  `gcloud storage rsync -r gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/datasets datasets`
-  (same for `checkpoints`). This also stops the nightly sync errors.
-- [x] Read the saved `args` in each `best.pth` and write down `mean_tol`,
-  `mean_radius`, `max_refine_deg`, `epochs`, `seed`.
-- [x] Fix the out-of-date paths listed in the README (Makefile defaults,
-  `inference.py --out`).
-- [x] Make a `configs/` file per experiment (noise settings, seed, model
-  flags) and record the git commit hash in every results file.
-
-**Done when:** `make score-all` runs end to end on restored data.
-
-### Step 1 — Write the claims down before running anything (MUST)
-
-Write these into the paper draft now, with empty result tables. Fixing the
-claims in advance stops you choosing, after the fact, the comparison that
-happens to look good.
-
-- **H1 (scatter):** the model has lower ALL and BOUNDARY error than the best
-  *tuned* MTEX filter at every scatter level.
-- **H2 (misindexing):** the model has a lower >10° fraction than the best
-  `clean-*` MTEX method.
-- **H3 (learning matters):** the model beats the local-mean filter alone.
-- **H4 (real data):** on real noisy scans, the denoised map is closer to the
-  reference than the raw map and the tuned MTEX output.
-- **H5 (robustness):** the ranking survives the robustness tests in Step 7.
-
-If one fails, report it. "Learning helps mainly with misindexing and
-boundaries" is still a publishable, honest result. From the scatter-only
-numbers, expect this.
-
-### Step 2 — Build the test sets (MUST) — done 2026-10-12
-
-**Why:** problems 6 and 7. We need realistic levels and both noise types.
-
-Full grid = 7 scatter levels × 4 misindexing levels = **28 test sets**, maps
-1–500 each, boundary bias 4 (decided 2026-10-12, replacing the 6-set grid):
-
-- scatter max 1, 3, 5, 7, 9, 12, 15° (1° = good scan; 15° = grains only just
-  visible, the worst level that can still be denoised)
-- misindexing 0, 3, 6, 9% (0% keeps the scatter-only results, including the
-  existing scatter5/7/9 sets)
-
-- [x] Configs written by `src/make_test_grid.py` (`configs/noise/`,
-  list in `configs/test_grid.txt`); sets generated in `datasets/noise_<name>/`.
-- [x] **One shared seed (0)** for every set: a paired, factorial design where
-  two cells differ only in the amount of noise. State this in the Methods.
+### Test sets (Step 2, 2026-10-12)
+- [x] 28 sets: scatter max 1, 3, 5, 7, 9, 12, 15° × misindexing 0, 3, 6,
+  9%, 500 maps each, boundary bias 4. One shared seed (0), so two sets
+  differ only in the amount of noise.
+- [x] Mixed set `test_random`: every map has its own random noise level.
 - [x] Input noise of every set measured: `figures/test_grid/input_noise.csv`.
-- [x] Training and validation range widened to scatter 0–15° to cover the grid.
-- [ ] Make a **tuning set** for the baselines: maps 501–520 at the grid
-  settings. These are never used for testing.
+- [x] `.ang` copies of every set for MTEX.
 
-### Step 3 — Fair baselines (MUST)
+### Model (Step 4)
+- [x] Neighbours aligned over all 24 cubic symmetry variants (2026-10-11).
+- [x] Blind model: never told the noise level; trained on scatter 0–15° and
+  misindexing 0–10%, drawn afresh for every map.
+- [x] 3 seeds, 60 epochs each, about 5.8 h per run on one H100; best
+  checkpoints at epochs 58, 50 and 58.
+- [x] Scored on all 29 test sets (500 maps each). It removes 86–93% of the
+  mean error in every condition; mixed set 5.69° → 0.59°; spread across
+  seeds at most 0.03°. Gate (misindexing detector) on validation: recall
+  98.8%, precision 99.9%.
+- [x] Speed: 500 maps in 21–23 s on one H100, about 0.04 s per map.
 
-**Why:** problems 2, 3, 4 and 8, and the core weakness of Atindama.
+### Metrics (Step 6, part)
+- [x] Four columns, all means (decided 2026-10-13): ALL, CORRUPTED,
+  BOUNDARY, >10°.
+- [x] Fraction of noise removed (1 − output error / input error).
+- [x] The map is the unit; paired t-test (used for the 10-map September
+  MTEX comparison in `results.tex`).
 
-- [ ] Fix `run_mtex_baseline.m`: restore the variant-B `for` loop; make the
-  input/output folders and `nMaps` arguments rather than hand-edited lines.
-- [ ] Set the grain threshold per condition to above the largest
-  within-grain difference (about 2× the max scatter; e.g. 5° for 1°
-  scatter, 20° for 9°), and report the values. Apply the same rule to our
-  `--mean-tol` (its help text says ~1.6× max scatter).
-- [ ] **Tune each filter on the tuning maps (501–520), separately per
-  condition.** Grid-search the main strength setting of each filter (for
-  example `numNeighbours` for mean/median/Kuwahara, `alpha` for spline and
-  half-quadratic, the two weights of infimal convolution; check exact names
-  in the MTEX 7.1 docs). Pick the value with the lowest mean error, then
-  freeze it.
-- [ ] Run the tuned filters on test maps **1–100** for all 6 conditions
-  (all 500 if time allows). Decide the number now and do not change it later.
-- [ ] Add the **local-mean-only** baseline: our edge-preserving local mean
-  with no network (the "epoch 0" model). Run it on all 500 maps.
-- [ ] Note in the paper that `clean-*` removes grains under 3 pixels and does
-  **not** use the true bad-pixel mask (confirmed in the script). This
-  answers the README's open question: the 1.48% baseline is honest.
+### MTEX baseline (Step 3, part)
+- [x] `run_mtex_baseline.m` rewritten: runs from the package folder with
+  no paths to edit, all filters in one list, restartable, logs the time of
+  every output.
+- [x] Grain threshold max(10°, 2θmax) per set (per map for the mixed set).
+- [x] Edge bug fixed (`'fill', 'extrapolate'`): no empty pixels at the map
+  edge.
+- [x] Package with the 290 `.ang` files: `datasets/mtex_package.zip`.
+- [x] Decided (2026-10-14): the 6 `clean-*` filters only, maps 1–10 of each
+  of the 29 sets. The plain filters are skipped: they leave misindexed
+  pixels untouched (MTEX does not filter grains under 5 pixels), and with
+  no misindexing they give the same result as `clean-*` (checked on map 1).
+- [ ] **Running now** on the Windows PC (about 1.8 h).
 
-**Done when:** a results table where every method had the same chance to be
-tuned.
+### Paper (Step 9, part)
+- [x] Abstract (draft, `paper/abstract.tex`).
+- [x] Methods: data, noise model, test conditions (`paper/data_and_noise.tex`);
+  baseline filters (`paper/mtex_baselines.tex`).
+- [x] Results draft (`paper/results.tex`) and figures: noise examples,
+  training loss, results vs scatter, denoised examples.
 
-### Step 4 — Train the final model properly (MUST)
+---
 
-**Why:** problems 5, 6 and 9; Ding (train on the noise you will meet);
-Kaufmann and Martinez (repeat trainings).
+## 5. Remaining
 
-- [x] **Fix the symmetry handling first.** (Done 2026-10-11 inside the learned kernel, `aligned_neighbours`.) In `local_mean_quat`, align each
-  neighbour to the centre pixel over all 24 cubic symmetry variants (the
-  existing `align_to()` in `orientation_torch.py` does this), *then* apply the
-  tolerance test. Also add a training augmentation that stores each pixel as
-  a random symmetry variant. Re-run the toy test above. It must give the
-  same error with and without random variants.
-- [x] (configs written: `configs/train/blind_learned_seed1-3.yaml`; training not started) **Train one "blind" model** that never knows the noise level: per
-  training map, draw scatter max uniformly from 0–9° and misindexing from
-  0–10%. (`TrainMaps` currently uses fixed values. This needs a small change
-  where `corrupt(...)` is called.) This is the main model. It is more useful
-  in practice, and fairer against filters tuned per level.
-- [ ] Keep the per-level models as an ablation ("does knowing the noise level
-  help?").
-- [ ] Train until validation stops improving for ~10 epochs (max ~100), with
-  the same rule for every run.
-- [ ] **3 seeds** for the blind model. Report mean ± std. A difference smaller
-  than the seed-to-seed spread is not a result.
+### 5.1 Next, when the MTEX results arrive (MUST)
 
-**Done when:** 3 converged blind-model checkpoints that pass the symmetry test.
+1. On Windows: zip the inner `mtex_package\mtex_package\mtex_out` and upload
+   it to `datasets/mtex_package/mtex_out`, replacing the old upload (its
+   `clean-*` files have empty edge pixels).
+2. `bash src/import_mtex_results.sh`
+3. `python3 src/compare_with_mtex.py` and `make score-grid`.
+4. In `results.tex`, replace the "preliminary" MTEX section with the 29-set
+   comparison. Update the MTEX sentence and the speed sentence in the
+   abstract, and the timings in `mtex_baselines.tex`, from the new
+   `mtex_log.csv` files.
+5. Fill the placeholders in `mtex_baselines.tex`: `[processor]` and
+   `[how these values were chosen]` (the 5×5 window and α = 0.25).
 
-### Step 5 — Ablations: what makes it work (MUST for A1, SHOULD for the rest)
+### 5.2 A fair comparison (MUST)
 
-An *ablation* means removing one part and measuring the drop.
+- [ ] **Local-mean-only baseline (A1, answers H3).** Our edge-preserving
+  local mean with no network, on all 500 maps of every set. Without it a
+  reviewer can say the gain does not come from learning.
+- [ ] **MTEX tuning: decide.** The filters use near-default settings. Either
+  tune them (tuning maps 501–520 at the grid settings, grid-search each
+  filter's strength per condition, then freeze) or say plainly in the paper
+  that they are not tuned. H1 as written ("the best *tuned* filter") needs
+  the tuning. Note that MTEX is given the true noise level through the grain
+  threshold, and the network is not.
+- [ ] **Checkpoint choice.** The 3 runs picked their best checkpoint with a
+  score built from **medians** (the code switched to means on 2026-10-13),
+  and two runs peaked at epoch 58 of 60. Either state both in the Methods,
+  or retrain longer with the mean score (GPU only, `train_model.sh`).
+- [ ] Say in the paper that `clean-*` does not use the true bad-pixel mask
+  (it only deletes grains under 3 pixels). Partly done in
+  `mtex_baselines.tex`.
 
-- **A1** local mean only, no network (from Step 3). Answers H3. **MUST.**
-- **A2** network without the local mean (`--mean-radius 0`), trained to
-  convergence. The old v1 run had only 3 epochs.
-- **A3** no local-misfit input channel (`--no-misfit`).
-- **A4** per-level models vs the blind model.
-- **A5** sign-only vs symmetry-aware local mean (the fix in Step 4).
+### 5.3 Statistics (Step 6, MUST)
 
-One seed is acceptable for A2–A5 if you say so in the paper.
+- [ ] Per map: model error − best MTEX filter error (same map, same noise).
+- [ ] Paired t-test on the 10 maps per set, bootstrap 95% interval of the
+  mean difference (resample maps 10,000 times), Holm correction across the
+  29 sets.
+- [ ] Claim a win only if the interval excludes zero **and** the gap is
+  bigger than the spread across seeds.
+- [ ] **Boundary F1:** find boundaries (neighbour disorientation > 5°, check
+  that 10° gives the same ranking) in the denoised map and compare with the
+  true boundaries.
 
-### Step 6 — Metrics and statistics (MUST)
+**Done when:** one CSV per set plus a summary table with intervals and
+corrected p-values.
 
-**Why:** Atindama used one number, 10 maps and a t-test, with no correction
-for many comparisons.
+### 5.4 Ablations (Step 5: A1 MUST, the rest SHOULD)
 
-Report per condition:
-- The four columns, all **means** (decided 2026-10-13): ALL, CORRUPTED,
-  BOUNDARY, and >10° (%). The mean is what Atindama and Hielscher report.
-- **Fraction of noise removed** = 1 − output error / input error. This
-  makes levels comparable and answers the "same percentage" question
-  directly.
-- **Boundary F1** (new): detect boundaries (neighbour disorientation > 5°)
-  in the denoised map and compare with the true boundaries. F1 combines
-  "found the true ones" and "did not invent fake ones". Check that 10° gives
-  the same ranking. This replaces Atindama's by-eye boundary figures with a
-  number.
+An *ablation* removes one part and measures the drop. All training on the GPU.
 
-Statistics:
-- The unit is the **map**, not the pixel. Pixels in one map are not
-  independent, so pixel-level tests overstate certainty.
-- For each map, compute model error − best-baseline error (a *paired*
-  difference: same map, same noise).
-- Test with a **paired t-test** on the per-map means (500 maps is plenty
-  for it), and give a **bootstrap 95% confidence interval** of the mean
-  difference (resample maps 10,000 times).
-- Correct for the many comparisons with **Holm's method**.
-- Claim a win only if the interval excludes zero **and** the gap is bigger
-  than the seed spread.
+- **A1** local mean only, no network (5.2).
+- **A2** network without the local mean (`--mean-radius 0`).
+- **A3** no local-misfit input (`--no-misfit`).
+- **A4** per-level models vs the blind model. The old per-level U-Nets
+  exist for scatter 5/7/9 only (`unet`, scatter only).
+- **A5** sign-only vs symmetry-aware alignment.
 
-**Done when:** `score_dataset.py` (or a small `stats.py`) writes one CSV per
-condition plus a summary table with intervals and corrected p-values.
+One seed is acceptable for A2–A5 if the paper says so.
 
-### Step 7 — Robustness tests (SHOULD)
+### 5.5 Robustness tests (Step 7, SHOULD)
 
-**Why:** training and test noise come from the same generator, so good scores
-may partly mean "learned this generator's habits". Each test below changes
-one thing the model never saw.
+Training and test noise come from the same generator, so good scores may
+partly mean "learned this generator's habits". Each test changes one thing
+the model never saw.
 
 - [ ] **Symmetry relabelling:** store each test pixel (a) in the fundamental
-  zone, as vendor software does, and (b) as a random variant. Scores must not
-  change. MTEX will pass this; our current model will not (Step 4 fixes it).
-- [ ] **Different noise shape:** same average error, but the tilt angle
-  follows a bell-shaped distribution (e.g. von Mises–Fisher, or the de la
-  Vallée Poussin noise Atindama used, which MTEX can sample) instead of
-  uniform 0–max.
-- [ ] **Grains with internal orientation gradients:** DREAM.3D grains have
-  one orientation each, but real deformed grains bend slowly. Apply a smooth
-  sample rotation that grows across the map (e.g. 0 → 5° over 128 px) to
-  the clean maps, then add noise. Check whether the model flattens the
-  gradient. This is Atindama's stated weakness and a risk for every
-  method trained on DREAM.3D.
-- [ ] **Different microstructure (NICE):** a few DREAM.3D maps with smaller
-  grains (more boundaries), like Martinez's unseen heat treatment.
-- [ ] **Cross-level matrix:** evaluate every model at every noise level.
-- [ ] **Noise outside the training range** (added 2026-10-14). A reviewer
-  will ask what happens when the noise is stronger than anything the model
-  was trained on (scatter 0–15°, misindexing 0–10%). Test the existing
-  model; no retraining is needed.
-  - Test sets just outside the range: `scatter18`, `scatter20` (more
-    scatter), `scatter5_mis15`, `scatter5_mis20` (more misindexing) and
-    `scatter20_mis15` (both).
-  - Each set needs one config, a copy of `configs/noise/scatter15_mis9.yaml`
-    with new `scatter` / `misindex` values (keep `seed: 0`), then
+  zone, as vendor software does, and (b) as a random symmetry variant.
+  Scores must not change. Note: training does **not** yet include a
+  random-variant augmentation (only the neighbour alignment was done), so
+  run this test before claiming the model handles real vendor files.
+- [ ] **Noise outside the training range.** A reviewer will ask what happens
+  when the noise is stronger than anything in training (scatter 0–15°,
+  misindexing 0–10%). No retraining is needed.
+  - Test sets: `scatter18`, `scatter20` (more scatter), `scatter5_mis15`,
+    `scatter5_mis20` (more misindexing), `scatter20_mis15` (both).
+  - Each needs a copy of `configs/noise/scatter15_mis9.yaml` with new
+    `scatter` / `misindex` values (keep `seed: 0`), then
     `make noise NOISE=<set>`.
-  - Evaluate on the GPU, one job per seed (`eval_model.sh` takes one RUN):
+  - One GPU job per seed (`eval_model.sh` takes one RUN):
     `RUN=blind_learned_seed1 SETS="scatter18 scatter20 scatter5_mis15 scatter5_mis20 scatter20_mis15" sbatch src/eval_model.sh`,
-    then the same for seed2 and seed3. About 22 s per set per seed.
-  - Write one honest sentence in the Discussion, either "the error grows
-    gradually beyond the training range" or "it breaks down above X". Both
-    are acceptable to a reviewer; saying nothing is not.
+    then seed2 and seed3. About 22 s per set per seed.
+  - Write one honest sentence in the Discussion: "the error grows gradually
+    beyond the training range" or "it breaks down above X".
+- [ ] **Different noise shape:** same average error, but a bell-shaped tilt
+  angle (von Mises–Fisher, or the de la Vallée Poussin noise Atindama used)
+  instead of uniform 0–max.
+- [ ] **Grains with internal orientation gradients:** apply a smooth rotation
+  that grows across the map (e.g. 0 → 5° over 128 px) to the clean maps, then
+  add noise. Check whether the model flattens the gradient (Atindama's stated
+  weakness).
+- [ ] **Different microstructure (NICE):** a few DREAM.3D maps with smaller
+  grains (more boundaries).
 
-### Step 8 — Real-data validation (MUST for a strong paper)
+### 5.6 Real data (Step 8, MUST for a strong paper)
 
-**Why:** this is the biggest gap in all 8 papers. Map-level papers judged
-real data by eye. Pattern-level papers used CI/IQ, which measure
-self-consistency, not accuracy.
+Biggest gap in all 8 papers: map-level papers judged real data by eye,
+pattern-level papers by CI/IQ (self-consistency, not accuracy).
 
-**Data:** the public *ni_gain* dataset (Ånes et al.), 10 scans of the **same
-area** of recrystallised **nickel** (cubic, like our synthetic data), at
-camera gain 0–24 dB (more gain = noisier patterns). Map 149 × 200, patterns
-60 × 60, CC BY 4.0, Zenodo DOI 10.5281/zenodo.7497682. It loads through
+**Data:** *ni_gain* (Ånes et al.), 10 scans of the **same area** of
+recrystallised nickel at camera gain 0–24 dB. Map 149 × 200, CC BY 4.0,
+doi:10.5281/zenodo.7497682, via
 `kikuchipy.data.ni_gain(number=k, allow_download=True)`.
 
 - [ ] Install in the `ebsd` env: `pip install kikuchipy pyebsdindex orix`
-  (none are installed yet).
-- [ ] Index all 10 scans with Hough indexing (PyEBSDIndex) → 10 realistic
-  noisy maps, with real scatter *and* real misindexing.
-- [ ] Build the **reference**: index the lowest-gain scan with dictionary
-  indexing + refinement (kikuchipy). This is the most accurate map we can make.
-- [ ] Measure the **reference floor**: the disagreement between two good
-  indexings (e.g. Hough vs dictionary on the 0 dB scan). Differences
-  smaller than this cannot be claimed. Ding found ~1° between methods.
-- [ ] Check **drift** between scans (misorientation map between two low-gain
-  scans), as Mani Krishna and Shen did. Register the maps if they shifted.
-- [ ] Denoise each noisy map with the blind model (synthetic training only,
-  no retuning on this data) and the tuned MTEX filters (parameters frozen
-  from Step 3). The U-Net is fully convolutional; pad the map to a multiple
-  of 8.
-- [ ] Plot error vs reference, and >10° fraction, against gain for raw /
+  (still not installed on 2026-10-14).
+- [ ] Hough-index all 10 scans (PyEBSDIndex): 10 real noisy maps.
+- [ ] Reference: dictionary indexing + refinement of the lowest-gain scan.
+- [ ] Reference floor: disagreement between two good indexings of the 0 dB
+  scan. Smaller differences cannot be claimed.
+- [ ] Check drift between scans; register the maps if they shifted.
+- [ ] Denoise each map with the blind model (no retuning) and the MTEX
+  filters (frozen settings). Pad the map to a multiple of 8.
+- [ ] Plot error vs reference and >10° fraction against gain, for raw /
   MTEX / ours.
 
-**Done when:** one figure and one table showing how far each method moves
-real noisy maps toward the reference.
+**Done when:** one figure and one table.
 
-### Step 9 — Write it up (start today)
+### 5.7 Writing (Step 9)
 
-These sections do not depend on final numbers, so write them now:
+- [ ] Title, Introduction, Related work (use the table in Section 2).
+- [ ] Methods: network (learned neighbour weights, symmetry alignment, gate),
+  training (loss, optimiser, 60 epochs, 3 seeds, checkpoint choice),
+  statistics.
+- [ ] Hypotheses H1–H5 (Section 6) are not in the paper yet.
+- [ ] Discussion and limitations: synthetic training, cubic only, 2D maps,
+  uniform-angle noise, grains of one orientation, the real reference has its
+  own error. Conclusion.
+- [ ] Reproducibility: release the code, the MTEX script, seeds, test sets
+  and checkpoints.
 
-- **Introduction + Related work:** use the table in Section 2. Make the
-  "patterns vs maps" split explicit: our method needs only the map.
-- **Methods:** data (DREAM.3D, 40,000 maps, test 1–500 vs train 501+, no
-  overlap, unlike Prajapat), noise model, architecture (6D representation
-  per Zhou 2019, symmetry-aware loss, gated heads), baselines and tuning
-  protocol, metrics, statistics. Write the Step 1 hypotheses here.
-- **Results:** create the empty tables and figure captions now. One table per
-  hypothesis.
-- **Limitations (be upfront):** synthetic training, cubic only, 2D maps,
-  uniform-angle noise as the main model, the real reference has its own
-  error, piecewise-constant training grains.
-- **Reproducibility:** release code, the frozen MTEX script, seeds, test sets
-  and checkpoints. Atindama and Prajapat did not release data, so a public
-  benchmark is a contribution in itself.
+### 5.8 Housekeeping
 
----
-
-## 5. Order of work
-
-1. Step 0 (restore), then Step 1 (claims), and start Step 9 writing. **Today.**
-2. Step 2 (test sets) and the Step 4 symmetry fix. Both are small code jobs.
-3. In parallel: Step 3 MTEX tuning + runs (MATLAB machine) and Step 4
-   blind-model training with 3 seeds (GPU).
-4. Step 5 A1 + Step 6 statistics → first full results table.
-5. Step 8 real data.
-6. Step 7 robustness, then the remaining ablations.
+- [ ] `COMMANDS.md`, `README.md` and `configs/README.md` still use the old
+  paths (`mtex_out_<set>`, `datasets/clean_euler`, `datasets/noise_<set>`).
+- [ ] Test the figure scripts after the path changes: `plot_error_maps`,
+  `make_results_figures`, `plot_noise_examples`, `make_mtex_package`,
+  `plot_mtex_maps`, `check_noise`, `summarize_test_grid`.
+- [ ] Home folder over its disk quota ("Disk quota exceeded" on 2026-10-14);
+  free some space.
+- [ ] The rclone OneDrive remote is empty; re-create it with `rclone config`.
+- [ ] Optional: activate MATLAB on the cluster (CMU licence) and add the
+  Statistics and Machine Learning Toolbox, to run MTEX here
+  (`src/run_mtex_grid.sh`).
 
 ---
 
-## 6. References
+## 6. Hypotheses (written 2026-10-11, before the results)
+
+| | Claim | Can be tested after |
+|---|---|---|
+| H1 | Lower ALL and BOUNDARY error than the best (tuned) MTEX filter at every scatter level | MTEX run (5.1); tuning decision (5.2) |
+| H2 | Lower >10° fraction than the best `clean-*` MTEX filter | MTEX run (5.1) |
+| H3 | Better than the local mean alone | A1 (5.2) |
+| H4 | On real scans, closer to the reference than the raw map and MTEX | Real data (5.6) |
+| H5 | The ranking survives the robustness tests | 5.5 |
+
+If one fails, report it. "Learning helps mainly with misindexing and
+boundaries" is still a publishable, honest result.
+
+---
+
+## 7. Decisions that changed the original plan
+
+- 2026-10-12: test grid of 28 sets (7 scatter × 4 misindexing) instead of 6.
+- 2026-10-12: training on the GPU only.
+- Training range widened from scatter 0–9° to 0–15°, to cover the grid.
+- Fixed 60 epochs per run instead of "stop when validation stops improving".
+- 2026-10-13: every error number is a mean, not a median.
+- 2026-10-14: MTEX on maps 1–10 of each set (not 100–500), 6 `clean-*`
+  filters only.
+- 2026-10-14: results in two folders, model and MTEX.
+
+---
+
+## 8. Order of the remaining work
+
+1. MTEX import and comparison; update Results and abstract (5.1).
+2. Local-mean baseline (A1) and statistics (5.2, 5.3): the first full
+   results table.
+3. Decide on MTEX tuning and on the checkpoint question (5.2).
+4. Write the empty paper sections (5.7).
+5. Real data (5.6).
+6. Robustness tests (5.5), then ablations A2–A5 (5.4).
+
+---
+
+## 9. References
 
 - Atindama E, Lef P, Doğan G, Athavale P (2023) Restoration of noisy orientation maps from EBSD imaging. *Integr Mater Manuf Innov* 12:251–266. doi:10.1007/s40192-023-00304-8
 - Hielscher R, Silbermann CB, Schmidl E, Ihlemann J (2019) Denoising of crystal orientation maps. *J Appl Crystallogr* 52:984–996. doi:10.1107/S1600576719009075

@@ -1,0 +1,82 @@
+Mean per-pixel error ALL (deg), all methods on the same maps; ours = mean of 3 runs.
+Each filter: the better of plain and pre-cleaned (c = clean- version); * best MTEX result.
+
+set              maps   input    ours            mean          median        Kuwahara          spline  half-quadratic   infimal conv.
+scatter1           10   0.500   0.068         0.199c          0.081c*         0.196c          0.081c          0.345c          0.102c 
+scatter3           10   1.501   0.185         0.589c          0.243c          0.587c          0.222c*         1.082c          0.947c 
+scatter5           10   2.502   0.300         0.986c          0.408c*         0.977c          0.423c          1.824c          1.916c 
+scatter7           10   3.503   0.416         1.427c          0.588c*         1.365c          0.935c          2.567c          2.902c 
+scatter9           10   4.504   0.536         1.975c          0.807c*         1.747c          1.399c          3.399c          3.894c 
+scatter12          10   6.005   0.722         3.674c          1.395c*         2.735c          2.587c          5.330c          5.407c 
+scatter15          10   7.506   0.919         9.800c          3.485c*         6.626c          5.706c          7.245c          7.049c 
+scatter1_mis3      10   1.714   0.128         0.398c          0.279c          0.394c          0.278c*         0.535c          0.304c 
+scatter3_mis3      10   2.685   0.247         0.792c          0.445c          0.790c          0.421c*         1.257c          1.150c 
+scatter5_mis3      10   3.655   0.364         1.184c          0.607c*         1.179c          0.635c          1.974c          2.109c 
+scatter7_mis3      10   4.626   0.484         1.624c          0.786c*         1.571c          1.122c          2.708c          3.097c 
+scatter9_mis3      10   5.597   0.607         2.180c          1.006c*         1.952c          1.595c          3.545c          4.098c 
+scatter12_mis3     10   7.053   0.802         4.043c          1.613c*         2.994c          2.856c          5.517c          5.656c 
+scatter15_mis3     10   8.509   1.011        10.129c          3.664c*         6.763c          5.853c          7.539c          7.387c 
+scatter1_mis6      10   2.910   0.196         0.584c          0.463c          0.579c          0.461c*         0.710c          0.493c 
+scatter3_mis6      10   3.851   0.317         0.976c          0.629c          0.975c          0.602c*         1.411c          1.334c 
+scatter5_mis6      10   4.792   0.435         1.368c          0.791c*         1.365c          0.794c          2.110c          2.288c 
+scatter7_mis6      10   5.733   0.558         1.823c          0.984c*         1.773c          1.276c          2.847c          3.288c 
+scatter9_mis6      10   6.673   0.686         2.375c          1.193c*         2.152c          1.778c          3.678c          4.292c 
+scatter12_mis6     10   8.084   0.887         4.408c          1.787c*         3.234c          3.057c          5.687c          5.889c 
+scatter15_mis6     10   9.496   1.106        10.642c          3.887c*         7.080c          6.291c          7.819c          7.711c 
+scatter1_mis9      10   4.112   0.268         0.754c          0.631c          0.747c          0.628c*         0.870c          0.665c 
+scatter3_mis9      10   5.023   0.390         1.140c          0.790c          1.137c          0.757c*         1.543c          1.497c 
+scatter5_mis9      10   5.933   0.511         1.550c          0.971c          1.548c          0.940c*         2.241c          2.464c 
+scatter7_mis9      10   6.844   0.636         2.000c          1.153c*         1.945c          1.456c          2.955c          3.452c 
+scatter9_mis9      10   7.755   0.767         2.588c          1.383c*         2.344c          1.987c          3.804c          4.478c 
+scatter12_mis9     10   9.122   0.978         5.180c          2.114c*         3.705c          3.466c          5.870c          6.137c 
+scatter15_mis9     10  10.488   1.211        10.818c          3.992c*         7.220c          6.194c          8.116c          8.052c 
+test_random        10   6.806   0.724         3.825c          1.553c*         2.862c          2.437c          4.347c          4.582c 
+
+Paired t-test across 28 test sets, on the per-set ALL errors (ours - MTEX):
+  vs mean               mean difference -2.481 deg, ours lower in 28/28 sets, t = -4.37, p = 0.00017
+  vs median             mean difference -0.730 deg, ours lower in 28/28 sets, t = -4.52, p = 0.00011
+  vs Kuwahara           mean difference -1.784 deg, ours lower in 28/28 sets, t = -5.22, p = 1.7e-05
+  vs spline             mean difference -1.360 deg, ours lower in 28/28 sets, t = -4.40, p = 0.00015
+  vs half-quadratic     mean difference -2.814 deg, ours lower in 28/28 sets, t = -7.21, p = 9.4e-08
+  vs infimal conv.      mean difference -2.940 deg, ours lower in 28/28 sets, t = -7.40, p = 5.8e-08
+  vs best MTEX per set  mean difference -0.725 deg, ours lower in 28/28 sets, t = -4.47, p = 0.00013
+
+Within each set: paired t-test over its maps, ours vs the best MTEX filter of the set,
+Holm-corrected over the sets (p < 0.05).
+  ALL        29 sets: ours significantly lower in 28, higher in 0, not significant in 1
+  BOUNDARY   29 sets: ours significantly lower in 28, higher in 0, not significant in 1
+  CORRUPTED  22 sets: ours significantly lower in 22, higher in 0, not significant in 0
+  >10 deg    29 sets: ours significantly lower in 25, higher in 0, not significant in 4
+
+set                    best MTEX    ours    MTEX  lower  p (Holm)   (ALL)
+scatter1            clean-median   0.068   0.081  10/10   8.9e-09
+scatter3            clean-spline   0.185   0.222   5/10      0.43
+scatter5            clean-median   0.300   0.408  10/10   4.3e-10
+scatter7            clean-median   0.416   0.588  10/10   9.2e-10
+scatter9            clean-median   0.536   0.807  10/10   8.1e-10
+scatter12           clean-median   0.722   1.395  10/10   2.3e-05
+scatter15           clean-median   0.919   3.485  10/10   7.9e-06
+scatter1_mis3       clean-spline   0.128   0.278  10/10   0.00027
+scatter3_mis3       clean-spline   0.247   0.421  10/10    0.0057
+scatter5_mis3       clean-median   0.364   0.607  10/10   3.3e-12
+scatter7_mis3       clean-median   0.484   0.786  10/10   9.2e-10
+scatter9_mis3       clean-median   0.607   1.006  10/10   6.3e-10
+scatter12_mis3      clean-median   0.802   1.613  10/10   2.3e-05
+scatter15_mis3      clean-median   1.011   3.664  10/10   6.6e-07
+scatter1_mis6       clean-spline   0.196   0.461  10/10   4.9e-06
+scatter3_mis6       clean-spline   0.317   0.602  10/10   0.00037
+scatter5_mis6       clean-median   0.435   0.791  10/10   4.4e-10
+scatter7_mis6       clean-median   0.558   0.984  10/10   3.5e-10
+scatter9_mis6       clean-median   0.686   1.193  10/10   1.1e-10
+scatter12_mis6      clean-median   0.887   1.787  10/10   2.2e-06
+scatter15_mis6      clean-median   1.106   3.887  10/10   6.5e-07
+scatter1_mis9       clean-spline   0.268   0.628  10/10   2.3e-08
+scatter3_mis9       clean-spline   0.390   0.757  10/10   5.2e-05
+scatter5_mis9       clean-spline   0.511   0.940  10/10   0.00037
+scatter7_mis9       clean-median   0.636   1.153  10/10   1.2e-09
+scatter9_mis9       clean-median   0.767   1.383  10/10   8.1e-10
+scatter12_mis9      clean-median   0.978   2.114  10/10   1.5e-05
+scatter15_mis9      clean-median   1.211   3.992  10/10     5e-08
+test_random         clean-median   0.724   1.553  10/10    0.0057
+
+wrote /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/figures/mtex_comparison/per_map.csv, summary.csv, per_set_tests.csv, mtex_comparison.png/.pdf

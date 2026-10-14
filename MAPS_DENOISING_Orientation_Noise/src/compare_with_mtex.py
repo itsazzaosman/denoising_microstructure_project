@@ -17,7 +17,10 @@ Across the test sets, a paired t-test compares the network with each filter
 and with the best MTEX result of each set, on the per-set ALL errors (n =
 number of sets), so even one map per set gives a test over the 28 conditions.
 
-Writes <out>/per_map.csv, summary.csv and mtex_comparison.png/.pdf
+Within each set, a paired t-test over its maps compares the network with the
+best MTEX filter of that set, Holm-corrected over the sets for each measure.
+
+Writes <out>/per_map.csv, summary.csv, per_set_tests.csv and mtex_comparison.png/.pdf
 (default <out> = figures/mtex_comparison).
 
 Usage
@@ -100,6 +103,63 @@ def maps_and_filters(s):
 def level(s):
     m = re.match(r"scatter(\d+)(?:_mis(\d+))?$", s)
     return (int(m.group(1)), int(m.group(2) or 0)) if m else (None, None)
+
+
+def holm(pvalues):
+    """Holm's step-down correction; NaN p-values are left out and stay NaN."""
+    p = np.asarray(pvalues, dtype=float)
+    adj = np.full_like(p, np.nan)
+    idx = np.where(np.isfinite(p))[0]
+    order = idx[np.argsort(p[idx])]
+    m, running = len(order), 0.0
+    for j, i in enumerate(order):
+        running = max(running, min(1.0, (m - j) * p[i]))
+        adj[i] = running
+    return adj
+
+
+def per_set_tests(summary, per_set, out):
+    """Within each set: paired t-test over its maps, ours vs the best MTEX filter of
+    that set (chosen on ALL, then used for every measure). Holm's correction over
+    the sets, separately for each measure. Writes per_set_tests.csv."""
+    rows = []
+    for s, row in summary.items():
+        best = min(row["best"].values(), key=lambda f: row[f]["all"])
+        for k in KEYS:
+            a = np.array([x[k] for x in per_set[s]["ours"]])
+            b = np.array([x[k] for x in per_set[s][best]])
+            ok = np.isfinite(a) & np.isfinite(b)
+            if ok.sum() < 3:
+                continue                        # CORRUPTED: the set has no misindexing
+            a, b = a[ok], b[ok]
+            pv = stats.ttest_rel(a, b).pvalue if np.any(a != b) else np.nan
+            rows.append({"set": s, "measure": k, "best_mtex": best, "maps": int(ok.sum()),
+                         "ours": a.mean(), "mtex": b.mean(), "difference": (a - b).mean(),
+                         "ours_lower_maps": int((a < b).sum()), "p": pv})
+    for k in KEYS:
+        sel = [r for r in rows if r["measure"] == k]
+        for r, q in zip(sel, holm([r["p"] for r in sel])):
+            r["p_holm"] = q
+
+    with open(out / "per_set_tests.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        for r in rows:
+            w.writerow({c: (f"{v:.6g}" if isinstance(v, float) else v) for c, v in r.items()})
+
+    names = {"all": "ALL", "bnd": "BOUNDARY", "bad": "CORRUPTED", "gross": ">10 deg"}
+    print("\nWithin each set: paired t-test over its maps, ours vs the best MTEX filter of the set,")
+    print("Holm-corrected over the sets (p < 0.05).")
+    for k in KEYS:
+        sel = [r for r in rows if r["measure"] == k]
+        sig = [r for r in sel if r["p_holm"] < 0.05]
+        better = sum(r["difference"] < 0 for r in sig)
+        print(f"  {names[k]:<10} {len(sel):>2} sets: ours significantly lower in {better}, "
+              f"higher in {len(sig) - better}, not significant in {len(sel) - len(sig)}")
+    print(f"\n{'set':<16}{'best MTEX':>16}{'ours':>8}{'MTEX':>8}{'lower':>7}{'p (Holm)':>10}   (ALL)")
+    for r in (r for r in rows if r["measure"] == "all"):
+        print(f"{r['set']:<16}{r['best_mtex']:>16}{r['ours']:>8.3f}{r['mtex']:>8.3f}"
+              f"{r['ours_lower_maps']:>4}/{r['maps']:<2}{r['p_holm']:>10.2g}")
 
 
 def main():
@@ -197,6 +257,8 @@ def main():
             print(f"  vs {name:<18} mean difference {np.mean(a - b):+.3f} deg, ours lower in "
                   f"{int((a < b).sum())}/{len(grid)} sets, t = {t:.2f}, p = {pv:.2g}")
 
+    per_set_tests(summary, per_set, out)
+
     # ---- figure: error vs scatter, one panel per misindexing level ----
     import matplotlib
     matplotlib.use("Agg")
@@ -231,13 +293,15 @@ def main():
     axes[0].set_ylabel("mean per-pixel error (deg)")
     axes[0].legend(frameon=False, fontsize=7.5)
     n_maps = sorted({summary[s]["n"] for s in grid})
-    fig.suptitle(f"Network vs MTEX filters on the same test maps ({'/'.join(map(str, n_maps))} per set; "
-                 "each filter with or without pre-cleaning, whichever is better)",
+    plain_run = any(not f.startswith("clean-") for s in grid for f in filters_of[s])
+    how = ("each filter with or without pre-cleaning, whichever is better" if plain_run
+           else "MTEX filters with pre-cleaning")
+    fig.suptitle(f"Network vs MTEX filters on the same test maps ({'/'.join(map(str, n_maps))} per set; {how})",
                  x=0.01, ha="left", fontsize=10.5)
     fig.tight_layout()
     fig.savefig(out / "mtex_comparison.png", dpi=150)
     fig.savefig(out / "mtex_comparison.pdf")
-    print(f"\nwrote {out}/per_map.csv, summary.csv, mtex_comparison.png/.pdf")
+    print(f"\nwrote {out}/per_map.csv, summary.csv, per_set_tests.csv, mtex_comparison.png/.pdf")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,133 @@
+% ---------------------------------------------------------------------------
+% Methods: how the denoising error is measured, and why. Moved here from
+% results.tex on 2026-10-14 and extended with the reasons for each choice.
+% Numbers checked on 2026-10-14: 0.67% and 40.7 deg from 200,000 random pairs
+% of cubic orientations (src/orientation.py); 44% from the uniform angle
+% (P(angle > 5) = 4/9 at theta_max = 9 deg).
+% ---------------------------------------------------------------------------
+
+\subsection{Error measures}
+\label{sec:metrics}
+
+\paragraph{Disorientation.}
+To compare a denoised map with the clean map we need the angle between two
+orientations. For a cubic crystal the same orientation can be written in 24
+equivalent ways, so a plain difference between two sets of Euler angles is not
+a valid measure~\cite{atindama2023restoration,ding2020indexing}. We therefore
+use the disorientation angle. Let $\mathbf{q}$ and $\mathbf{q}'$ be the unit
+quaternions of two orientations. Their misorientation is
+\begin{equation}
+  \Delta\mathbf{q} = \mathbf{q}'\,\mathbf{q}^{-1},
+  \label{eq:misorientation}
+\end{equation}
+and the disorientation angle is the smallest rotation angle among the
+symmetrically equivalent forms of $\Delta\mathbf{q}$,
+\begin{equation}
+  \delta(\mathbf{q}, \mathbf{q}') = \min_{\mathbf{s} \in \mathcal{S}}
+  \; 2 \arccos \left| \left( \mathbf{s}\, \Delta\mathbf{q} \right)_0 \right|,
+  \label{eq:disorientation}
+\end{equation}
+where $\mathcal{S}$ is the set of the 24 proper rotations of the cubic point
+group and $(\cdot)_0$ is the scalar part of a quaternion. Every error in this
+paper is a disorientation angle.
+
+\paragraph{Four measures.}
+A single number cannot show everything a denoising method does to a map, so
+we use four measures, each answering one question.
+
+\emph{ALL: how large is the error overall?} For a map $m$ with the set of
+pixels $\Omega$ ($|\Omega| = 128 \times 128 = 16{,}384$), denoised map $u_m$
+and true map $u^0_m$, the error is the mean per-pixel disorientation,
+\begin{equation}
+  e_m = \frac{1}{|\Omega|} \sum_{\mathbf{x} \in \Omega}
+        \delta\big(u_m(\mathbf{x}), u^0_m(\mathbf{x})\big).
+  \label{eq:error}
+\end{equation}
+We use the mean, as Atindama et al.~\cite{atindama2023restoration} did, and
+not the median. A median ignores any group of pixels smaller than half the
+map, so it would not change at all if the misindexed pixels, at most 9\% of a
+test map, were left unrepaired.
+
+\emph{BOUNDARY: are grain boundaries kept sharp?} The same mean over the
+grain-boundary pixels $B_m$, the pixels with at least one of their four
+neighbours in a different grain of the true map. Since every DREAM.3D grain
+has a single orientation, these pixels are found exactly, without a threshold
+angle. About 17\% of the pixels lie on a boundary. This is where a filter
+averages two grains and blurs the boundary, and where most misindexing
+occurs. A method can lower ALL by smoothing the grain interiors, which hold
+83\% of the pixels, while blurring the boundaries; BOUNDARY shows this.
+
+\emph{CORRUPTED: were the misindexed pixels repaired?} The same mean over the
+misindexed pixels $M_m$, which the noise generator replaced and recorded for
+every map. A replaced pixel starts on average $40.7^\circ$ from its true
+orientation, so this measure shows directly whether a method found and
+rebuilt it. It is defined only for test sets with misindexing, and only for
+synthetic data, where the replaced pixels are known.
+
+\emph{${>}10^\circ$: how many pixels are still grossly wrong?} The percentage
+of pixels whose error exceeds $10^\circ$,
+\begin{equation}
+  g_m = \frac{100}{|\Omega|} \sum_{\mathbf{x} \in \Omega}
+        \mathbb{1}\Big[\delta\big(u_m(\mathbf{x}), u^0_m(\mathbf{x})\big) > 10^\circ\Big],
+  \label{eq:gross}
+\end{equation}
+where $\mathbb{1}[\cdot]$ is 1 when the condition holds and 0 otherwise. A few
+wrong pixels barely move the mean: if 1\% of the pixels are $60^\circ$ off and
+the rest $0.3^\circ$, ALL is only $0.9^\circ$, yet about 160 pixels of the map
+are wrong. We chose $10^\circ$ because it is a common threshold for a grain
+boundary in EBSD analysis, and the smallest grain threshold we give the MTEX
+filters (Section~\ref{sec:baselines}): a pixel more than $10^\circ$ off would be
+taken for a separate grain, and so creates false grains and boundaries. A
+smaller threshold, such as $5^\circ$, would count ordinary scatter as gross
+error: at $\theta_{\max} = 9^\circ$, scatter alone moves 44\% of the pixels
+beyond $5^\circ$ but none beyond $10^\circ$. Conversely, only 0.67\% of
+random orientation pairs lie within $10^\circ$ of each other, so practically
+every misindexed pixel that is not repaired is counted. At
+$\theta_{\max} \geq 12^\circ$, scatter alone moves 17--33\% of the pixels
+beyond $10^\circ$ (Section~\ref{sec:test_conditions}). At these levels the
+measure mixes the two kinds of error, and CORRUPTED is the measure of
+misindexing repair.
+
+\paragraph{Averaging over maps.}
+Each test set has $N = 500$ maps. We compute every measure per map first and
+then report the mean over the maps, for example
+$\bar{e} = \frac{1}{N}\sum_{m=1}^{N} e_m$, with the standard deviation across
+the maps. The map, not the pixel, is the unit of every statistic: neighbouring
+pixels share a grain and a filter window, so their errors are not independent,
+and treating the 16{,}384 pixels of a map as independent samples would
+overstate the certainty of a result. Since every map has the same number of
+pixels, $\bar{e}$ is also the mean disorientation over all $N|\Omega|$ pixels
+of the set.
+
+\paragraph{Repeated training.}
+We trained the network three times, with different random seeds. Unless
+stated otherwise, the value given for our method is the mean of the three
+runs, and the $\pm$ value is the standard deviation across the runs, which
+shows how much a result depends on the random start of training. A
+difference between two methods smaller than this spread is not a result.
+
+\paragraph{Fraction of noise removed.}
+The input error grows with $\theta_{\max}$, so absolute errors cannot be
+compared between noise levels. We therefore also give the fraction of the
+input error that the denoising removed,
+\begin{equation}
+  R = 1 - \frac{\bar{e}_{\text{out}}}{\bar{e}_{\text{in}}},
+  \label{eq:removed}
+\end{equation}
+which puts all levels on the same scale.
+
+\paragraph{Statistical test.}
+To test whether two methods differ, we use the paired $t$-test on the
+per-map errors~\cite{neter1996applied}, as Atindama et
+al.~\cite{atindama2023restoration} did. The test is paired because both
+methods are applied to the same maps with the same noise, so taking the
+difference map by map removes the variation between easy and hard maps. For
+the same $n$ maps let $d_m = e^{(1)}_m - e^{(2)}_m$ be the difference between
+the errors of the two methods on map $m$, $\bar{d}$ the mean and $S_d$ the
+standard deviation of the $d_m$. The test statistic
+\begin{equation}
+  T = \frac{\bar{d}}{S_d / \sqrt{n}}
+  \label{eq:ttest}
+\end{equation}
+has a $t$-distribution with $n-1$ degrees of freedom. We take $p < 0.05$ as
+statistically significant.

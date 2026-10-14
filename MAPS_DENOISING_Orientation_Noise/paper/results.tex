@@ -9,75 +9,8 @@
 
 \section{Results}
 
-\subsection{Measuring the denoising error}
-
-To compare a denoised map with the clean map we need the angle between two
-orientations. For a cubic crystal the same orientation can be written in 24
-equivalent ways, so a plain difference between two sets of Euler angles is not
-a valid measure~\cite{atindama2023restoration,ding2020indexing}. We therefore
-use the disorientation angle. Let $\mathbf{q}$ and $\mathbf{q}'$ be the unit
-quaternions of two orientations. Their misorientation is
-\begin{equation}
-  \Delta\mathbf{q} = \mathbf{q}'\,\mathbf{q}^{-1},
-  \label{eq:misorientation}
-\end{equation}
-and the disorientation angle is the smallest rotation angle among the
-symmetrically equivalent forms of $\Delta\mathbf{q}$,
-\begin{equation}
-  \delta(\mathbf{q}, \mathbf{q}') = \min_{\mathbf{s} \in \mathcal{S}}
-  \; 2 \arccos \left| \left( \mathbf{s}\, \Delta\mathbf{q} \right)_0 \right|,
-  \label{eq:disorientation}
-\end{equation}
-where $\mathcal{S}$ is the set of the 24 proper rotations of the cubic point
-group and $(\cdot)_0$ is the scalar part of a quaternion.
-
-For a map $m$ with the set of pixels $\Omega$ ($|\Omega| = 128 \times 128 =
-16{,}384$), denoised map $u_m$ and true map $u^0_m$, the denoising error is the
-mean per-pixel disorientation,
-\begin{equation}
-  e_m = \frac{1}{|\Omega|} \sum_{\mathbf{x} \in \Omega}
-        \delta\big(u_m(\mathbf{x}), u^0_m(\mathbf{x})\big).
-  \label{eq:error}
-\end{equation}
-We also compute the same mean over two subsets of the pixels: the
-grain-boundary pixels $B_m$, which have at least one of their four neighbours
-in a different grain of the true map, and the misindexed pixels $M_m$, which
-the noise generator replaced. We call the three measures ALL ($e_m$), BOUNDARY
-($e^B_m$) and CORRUPTED ($e^M_m$). Last, the percentage of pixels that are
-still grossly wrong is
-\begin{equation}
-  g_m = \frac{100}{|\Omega|} \sum_{\mathbf{x} \in \Omega}
-        \mathbb{1}\Big[\delta\big(u_m(\mathbf{x}), u^0_m(\mathbf{x})\big) > 10^\circ\Big],
-  \label{eq:gross}
-\end{equation}
-where $\mathbb{1}[\cdot]$ is 1 when the condition holds and 0 otherwise.
-
-Each test set has $N = 500$ maps. For each set we report the mean over the
-maps, $\bar{e} = \frac{1}{N}\sum_{m=1}^{N} e_m$. Since every map has the same
-number of pixels, $\bar{e}$ is also the mean disorientation over all
-$N|\Omega|$ pixels of the set. We trained the network three times, with
-different random seeds. Unless stated otherwise, the value given for our
-method is the mean of the three runs, and the $\pm$ value is the standard
-deviation across the runs, which shows how much a result depends on the
-random start of training. To compare noise levels we also use the fraction of
-the input error that the denoising removed,
-\begin{equation}
-  R = 1 - \frac{\bar{e}_{\text{out}}}{\bar{e}_{\text{in}}}.
-  \label{eq:removed}
-\end{equation}
-
-To test whether two methods differ, we use the paired $t$-test on the
-per-map errors~\cite{neter1996applied}, as Atindama et
-al.~\cite{atindama2023restoration} did. For the same $n$ maps let
-$d_m = e^{(1)}_m - e^{(2)}_m$ be the difference between the errors of the two
-methods on map $m$, $\bar{d}$ the mean and $S_d$ the standard deviation of the
-$d_m$. The test statistic
-\begin{equation}
-  T = \frac{\bar{d}}{S_d / \sqrt{n}}
-  \label{eq:ttest}
-\end{equation}
-has a $t$-distribution with $n-1$ degrees of freedom. We take $p < 0.05$ as
-statistically significant.
+% The error measures (Eq. error, gross, removed, ttest) are defined in the
+% Methods, paper/metrics.tex.
 
 \subsection{Training}
 
