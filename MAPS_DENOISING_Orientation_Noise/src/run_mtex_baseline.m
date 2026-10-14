@@ -1,158 +1,185 @@
 % =========================================================================
-% run_mtex_baseline.m
+% run_mtex_baseline.m  (rewritten 2026-10-14)
 %
-% Runs the standard MTEX denoising filters on the noisy .ang maps and
-% exports each result as a plain Euler-angle .txt, in the SAME pixel order
-% as the original DREAM.3D export, so the Python disorientation scorer can
-% compare everything on equal terms.
+% Runs four MTEX denoising filters on the test maps in the MTEX package
+% folder (datasets/mtex_package, made by src/make_mtex_package.py), on a
+% Windows or Linux MATLAB with MTEX 7.1.
 %
-% This is the baseline your model has to beat. Run it FIRST: if the median
-% filter already fixes 5% misindexing perfectly, you have learned that in an
-% afternoon and should move straight to higher corruption rates.
+% HOW TO RUN
+%   1. Copy the whole mtex_package folder to the MTEX machine.
+%   2. Start MATLAB and MTEX (startup_mtex) as usual.
+%   3. Open this file FROM INSIDE mtex_package and press Run. No paths to
+%      edit: the script finds its data next to itself.
+%   4. Copy mtex_package/mtex_out back to the cluster and run
+%      src/import_mtex_results.sh (see COMMANDS.md).
 %
-% Output, per input map and per filter:
-%     <outdir>/<stem>__<filtername>.txt
+% INPUT   ang/<set>/map_XXXXX_clean_euler_noisy_noisy.ang
+% OUTPUT  mtex_out/<set>/map_XXXXX_clean_euler_noisy_noisy__<filter>.txt
+%         Euler angles (radians, Bunge ZXZ), one row per pixel in DREAM.3D
+%         order (x fastest), the format the Python scorer reads.
+%         mtex_out/<set>/mtex_log.csv: threshold, seconds and unfilled
+%         pixels for every output.
 %
-% Set the paths below and run.
+% FILTERS
+%   spline, median              applied grain by grain to the raw map
+%   clean-spline, clean-median  first delete the grains smaller than minPixel
+%                               pixels (this removes isolated misindexed
+%                               pixels), then smooth and fill the deleted
+%                               pixels from their neighbours
+%
+% GRAINS are detected with the threshold angle max(10, factor * theta_max)
+% degrees. Two pixels of one grain can differ by up to 2 * theta_max, and a
+% smaller threshold splits grains apart. MTEX is therefore given the true
+% scatter level of each set (of each map for test_random, from levels.csv),
+% information the network does not get.
+%
+% Outputs that already exist are skipped, so a stopped run can be restarted.
 % =========================================================================
 
 clear; close all;
 
 % ----------------------------- SETTINGS ---------------------------------
-angDir  = 'C:\Users\STUDENT\OneDrive\Documenten\MATLAB\mtex-7.1.0\ang_files_scatter9';
-% outDir  = 'C:\Users\STUDENT\OneDrive\Documenten\MATLAB\mtex-7.1.0\mtex_out_scatter9';
-outDir  = 'C:\Users\STUDENT\OneDrive\Documenten\MATLAB\mtex-7.1.0\mtex_out_scatter9_nograins';
-nMaps   = 10;        % how many maps to benchmark; 50 is plenty
-NY = 128; NX = 128;  % map size
-step    = 1.0;       % micron per pixel, must match --step used when writing .ang
-minPx   = 3;         % variant B: delete grains smaller than this many pixels.
-                     % 3 is a common choice; try 2 and 5 to see how sensitive
-                     % the baseline is to it.
+maps     = 1;          % which test maps: 1 = first map only, 1:10 = all ten in the package
+filters  = {'spline', 'median', 'clean-spline', 'clean-median'};
+factor   = 2;          % grain threshold = max(10, factor * theta_max) degrees
+minPixel = 3;          % clean-*: delete grains smaller than this many pixels
+medianNeighbours = 2;  % median filter window: (2*2+1) x (2*2+1) pixels
+setsToRun = {};        % empty = every set in sets.txt; or e.g. {'scatter5', 'scatter5_mis6'}
+NY = 128; NX = 128; step = 1.0;
 % ------------------------------------------------------------------------
 
+if ~exist('EBSD', 'class')
+  error('MTEX is not loaded: run startup_mtex first.');
+end
+
+pkgDir = fileparts(mfilename('fullpath'));
+if isempty(setsToRun)
+  setsToRun = strtrim(splitlines(fileread(fullfile(pkgDir, 'sets.txt'))));
+  setsToRun = setsToRun(~cellfun(@isempty, setsToRun));
+end
+
 CS = crystalSymmetry('m-3m', [3.524 3.524 3.524], 'mineral', 'Nickel');
-setMTEXpref('xAxisDirection','east');
-setMTEXpref('zAxisDirection','intoPlane');
+setMTEXpref('xAxisDirection', 'east');
+setMTEXpref('zAxisDirection', 'intoPlane');
 
-if ~exist(outDir, 'dir'); mkdir(outDir); end
+tAll = tic;
+for s = 1:numel(setsToRun)
+  setName = setsToRun{s};
+  angDir = fullfile(pkgDir, 'ang', setName);
+  outDir = fullfile(pkgDir, 'mtex_out', setName);
+  if ~isfolder(outDir), mkdir(outDir); end
+  thetaMax = scatterLevels(angDir, setName, maps);
 
-% the filters to benchmark. Add or remove freely.
-filters = {};
-F = meanFilter;                                  filters{end+1} = {'mean', F};
-F = medianFilter;      F.numNeighbours = 2;      filters{end+1} = {'median', F};
-F = KuwaharaFilter;    F.numNeighbours = 2;      filters{end+1} = {'kuwahara', F};
-F = splineFilter;                                filters{end+1} = {'spline', F};
-F = halfQuadraticFilter; F.alpha = 0.25;         filters{end+1} = {'halfquad', F};
-F = infimalConvolutionFilter;                    filters{end+1} = {'infconv', F};
+  logFile = fullfile(outDir, 'mtex_log.csv');
+  if ~isfile(logFile)
+    fid = fopen(logFile, 'w');
+    fprintf(fid, 'map,filter,threshold_deg,seconds,unfilled_pixels\n');
+    fclose(fid);
+  end
 
-files = dir(fullfile(angDir, '*_noisy_noisy.ang'));
-if isempty(files)
-    error('No *_noisy_noisy.ang files found in %s', angDir);
-end
-nMaps = min(nMaps, numel(files));
-fprintf('%d .ang files found, benchmarking %d\n\n', numel(files), nMaps);
-
-for k = 1:nMaps
-    fname = fullfile(files(k).folder, files(k).name);
-    [~, stem, ~] = fileparts(files(k).name);
-    fprintf('[%d/%d] %s\n', k, nMaps, stem);
-
-    % IMPORTANT: 'setting', 0 switches off the coordinate correction MTEX
-    % applies by default. .ang files from real machines carry a convention
-    % that isn't stored in the file, so MTEX guesses "setting 2". These files
-    % are synthetic and carry no such convention, so any correction would
-    % rotate the data and corrupt every later measurement.
-    % Verified on one map: with 'setting', 0 the round trip is exact (0.0000 deg).
-    ebsd = EBSD.load(fname, CS, 'interface', 'ang', 'setting', 0);
-
-    % grain reconstruction, needed by 'fill' so boundary pixels are respected
-    [grains, ebsd.grainId] = calcGrains(ebsd('indexed'), 'angle', 10*degree);
-
-    % ------------------------------------------------------------------
-    % VARIANT A: smoothing only.
-    % Filters denoise WITHIN grains. A misindexed pixel is ~40 deg from its
-    % neighbours, so calcGrains makes it a single-pixel grain and the filter
-    % has nothing to average it with. Expect this to fix scatter and leave
-    % outliers untouched.
-    % ------------------------------------------------------------------
-    for f = 1:numel(filters)
-        fname_f = filters{f}{1};
-        F       = filters{f}{2};
-        outFile = fullfile(outDir, sprintf('%s__%s.txt', stem, fname_f));
-        if exist(outFile, 'file'); continue; end
-        try
-            % ebsdS = smooth(ebsd('indexed'), F, 'fill', grains);
-            ebsdS = smooth(ebsd('indexed'), F);
-            writeEulerGrid(outFile, ebsdS, NY, NX, step);
-        catch ME
-            fprintf('   [skip] %s: %s\n', fname_f, ME.message);
-        end
+  fprintf('[%d/%d] %s\n', s, numel(setsToRun), setName);
+  for k = 1:numel(maps)
+    id = maps(k);
+    stem = sprintf('map_%05d_clean_euler_noisy_noisy', id);
+    angFile = fullfile(angDir, [stem '.ang']);
+    if ~isfile(angFile)
+      warning('missing %s, skipped', angFile); continue
     end
+    outFile = @(f) fullfile(outDir, sprintf('%s__%s.txt', stem, f));
+    todo = filters(~cellfun(@(f) isfile(outFile(f)), filters));
+    if isempty(todo), continue; end
 
-    % ------------------------------------------------------------------
-    % VARIANT B: the standard practitioner workflow.
-    %   1. delete grains smaller than minPx pixels -> removes the outliers
-    %   2. re-segment what is left
-    %   3. smooth with 'fill' -> interpolates the deleted pixels back
-    % This is the step that actually targets misindexing, and it is the
-    % baseline your model has to beat. Results are suffixed "clean+<filter>".
-    % ------------------------------------------------------------------
-    % for f = 1:numel(filters)
-        fname_f = filters{f}{1};
-        F       = filters{f}{2};
-        outFile = fullfile(outDir, sprintf('%s__clean-%s.txt', stem, fname_f));
-        if exist(outFile, 'file'); continue; end
-        try
-            ebsdC = ebsd;
-            % MTEX 7 uses numPixel; older versions used grainSize
-            if isprop(grains, 'numPixel')
-                small = grains(grains.numPixel < minPx);
-            else
-                small = grains(grains.grainSize < minPx);
-            end
-            ebsdC(small) = [];                      % drop those pixels
-            % [grainsC, ebsdC.grainId] = calcGrains(ebsdC('indexed'), 'angle', 10*degree);
-            % ebsdS = smooth(ebsdC('indexed'), F, 'fill', grainsC);
-            ebsdS = smooth(ebsdC('indexed'), F);
-            writeEulerGrid(outFile, ebsdS, NY, NX, step);
-        catch ME
-            fprintf('   [skip] clean-%s: %s\n', fname_f, ME.message);
-        end
+    % 'setting', 0: these synthetic .ang files carry no vendor convention,
+    % so MTEX must not apply its default coordinate correction (checked: the
+    % round trip is exact with this option).
+    ebsd = EBSD.load(angFile, CS, 'interface', 'ang', 'setting', 0);
+    thr = max(10, factor * thetaMax(k));
+    [grains, ebsd] = withGrains(ebsd('indexed'), thr);
+
+    for f = 1:numel(todo)
+      t0 = tic;
+      name = todo{f};
+      F = makeFilter(erase(name, 'clean-'), medianNeighbours);
+      if startsWith(name, 'clean-')
+        small = grains(grains.numPixel < minPixel);
+        ebsdC = ebsd(~ismember(ebsd.grainId, small.id));
+        [~, ebsdC] = withGrains(ebsdC, thr);
+        ebsdS = smooth(ebsdC, F, 'fill');
+      else
+        ebsdS = smooth(ebsd, F);
+      end
+      missing = writeEulerGrid(outFile(name), ebsdS, NY, NX, step);
+      if missing > 0
+        warning('%s %s: %d pixels have no value (written as NaN)', stem, name, missing);
+      end
+      fid = fopen(logFile, 'a');
+      fprintf(fid, '%d,%s,%.2f,%.2f,%d\n', id, name, thr, toc(t0), missing);
+      fclose(fid);
     end
+    fprintf('   map %d done (threshold %.1f deg)\n', id, thr);
+  end
 end
-
-fprintf('\nDone. Results in %s\n', outDir);
-fprintf('Now score them in Python against the clean maps.\n');
+fprintf('\nAll done in %.1f min. Results in %s\n', toc(tAll) / 60, fullfile(pkgDir, 'mtex_out'));
 
 
 % =========================================================================
-function writeEulerGrid(outFile, ebsd, NY, NX, step)
-% Write Euler angles as NY*NX rows in DREAM.3D raster order (x fastest).
-%
-% MTEX does not guarantee that ebsd() keeps the original row order, and
-% 'fill' can change the number of pixels, so we rebuild the grid explicitly
-% from each pixel's x/y coordinate instead of trusting the order.
+function [grains, ebsd] = withGrains(ebsd, thrDeg)
+% Grain reconstruction, with the grain id stored in ebsd so that smooth()
+% filters each grain separately. MTEX 7 returns the EBSD as the second
+% output; older versions return the grain ids.
+[grains, second] = calcGrains(ebsd, 'angle', thrDeg * degree);
+if isa(second, 'EBSD')
+  ebsd = second;
+else
+  ebsd.grainId = second;
+end
+end
 
-    E = ebsd.orientations.Euler;        % radians, Bunge ZXZ
-    x = ebsd.x;  y = ebsd.y;           % MTEX 7 exposes these directly
-                                        % (MTEX 5/6 used ebsd.prop.x / .prop.y)
 
-    col = round(x(:) / step) + 1;
-    row = round(y(:) / step) + 1;
-    keep = col >= 1 & col <= NX & row >= 1 & row <= NY;
+function F = makeFilter(name, medianNeighbours)
+switch name
+  case 'spline'
+    F = splineFilter;                 % smoothing strength chosen automatically
+  case 'median'
+    F = medianFilter;
+    F.numNeighbours = medianNeighbours;
+  otherwise
+    error('unknown filter %s', name);
+end
+end
 
-    grid = nan(NY * NX, 3);
-    idx  = (row(keep) - 1) * NX + col(keep);
-    grid(idx, :) = E(keep, :);
 
-    nMissing = sum(any(isnan(grid), 2));
-    if nMissing > 0
-        fprintf('   note: %d pixels had no value, filled with 0\n', nMissing);
-        grid(isnan(grid)) = 0;
-    end
+function theta = scatterLevels(angDir, setName, maps)
+% theta_max of every map: from the set name, or per map for test_random.
+tok = regexp(setName, '^scatter(\d+)', 'tokens', 'once');
+if ~isempty(tok)
+  theta = repmat(str2double(tok{1}), size(maps));
+  return
+end
+levels = readtable(fullfile(angDir, 'levels.csv'));
+theta = zeros(size(maps));
+for k = 1:numel(maps)
+  row = levels.map == maps(k);
+  if ~any(row), error('map %d missing from levels.csv of %s', maps(k), setName); end
+  theta(k) = levels.scatter_max_deg(row);
+end
+end
 
-    fid = fopen(outFile, 'w');
-    fprintf(fid, 'EulerAngles_0 EulerAngles_1 EulerAngles_2\n');
-    fprintf(fid, '%.8g %.8g %.8g\n', grid');
-    fclose(fid);
+
+function missing = writeEulerGrid(outFile, ebsd, NY, NX, step)
+% Write Euler angles as NY*NX rows in DREAM.3D raster order (x fastest),
+% rebuilt from each pixel's x/y because MTEX does not keep the row order.
+% A pixel with no value is written as NaN, never as a made-up orientation.
+E = ebsd.orientations.Euler;            % radians, Bunge ZXZ
+col = round(ebsd.x(:) / step) + 1;
+row = round(ebsd.y(:) / step) + 1;
+keep = col >= 1 & col <= NX & row >= 1 & row <= NY & all(isfinite(E), 2);
+grid = nan(NY * NX, 3);
+grid((row(keep) - 1) * NX + col(keep), :) = E(keep, :);
+missing = sum(any(isnan(grid), 2));
+
+fid = fopen(outFile, 'w');
+fprintf(fid, 'EulerAngles_0 EulerAngles_1 EulerAngles_2\n');
+fprintf(fid, '%.8g %.8g %.8g\n', grid.');
+fclose(fid);
 end

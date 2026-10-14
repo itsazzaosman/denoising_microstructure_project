@@ -129,21 +129,35 @@ make score-all NOISE=scatter5_mis6
 
 ---
 
-## 4. MTEX baseline (CPU, needs activated MATLAB)
+## 4. MTEX baseline (Windows MATLAB, first results)
 
-MATLAB R2026a and MTEX 7.1.0 are installed in `/project/community/aiosman/matlab/`.
-MATLAB must be activated once with your CMU account (see the notes in the
-chat, or ask the admins for CMU's licence server). Check:
+MTEX runs on the Windows computer, on a small package of test maps: the same
+maps the network was scored on, so the two can be compared map by map.
+
+**4.1 Build the package** *(done)*: maps 1-10 of all 29 test sets, the MATLAB
+script and a README, zipped (`$P/datasets/mtex_package.zip`, 71 MB):
 ```bash
-/project/community/aiosman/matlab/R2026a/bin/matlab -batch "disp(version)"
+python3 $P/src/make_mtex_package.py
 ```
-Then a short timing test, and the full run over all 29 sets (spline, median,
-clean-spline, clean-median; outputs next to the model's predictions):
+
+**4.2 On Windows**: download the zip (in VS Code: right-click it > Download),
+unzip, start MATLAB + `startup_mtex`, open `mtex_package/run_mtex_baseline.m`
+and press Run. It runs spline, median, clean-spline and clean-median on map 1
+of every set; set `maps = 1:10` at the top for all ten. Finished outputs are
+skipped, so it can be stopped and started again.
+
+**4.3 Bring the results back**: upload the folder `mtex_package/mtex_out` to
+`$P/datasets/mtex_package/mtex_out`, then:
 ```bash
-SETS="scatter5 scatter5_mis6" MAPS="1:20" sbatch $P/src/run_mtex_grid.sh
-sbatch $P/src/run_mtex_grid.sh                 # submit again after 12 h to continue
-make score-grid                                 # then re-score: MTEX now appears in every table
+bash $P/src/import_mtex_results.sh       # into datasets/mtex_out_<set>/; old Sept outputs -> datasets/mtex_out_archive/
+python3 $P/src/compare_with_mtex.py      # network vs MTEX on the same maps -> figures/mtex_comparison/
 ```
+`compare_with_mtex.py` prints one row per set and a paired t-test across the
+sets, and draws error vs scatter for the network and each filter.
+
+*(Later, for all 500 maps: MATLAB R2026a and MTEX 7.1.0 are also installed on
+the cluster in `/project/community/aiosman/matlab/`, not yet activated; then
+`sbatch $P/src/run_mtex_grid.sh` runs every map.)*
 
 ---
 
