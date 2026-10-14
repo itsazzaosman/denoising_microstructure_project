@@ -1,0 +1,65 @@
+% ---------------------------------------------------------------------------
+% Draft paper: learned denoising of EBSD orientation maps.
+%
+% A plain two-column article, NOT a journal template. When you choose a journal,
+% change the \documentclass line (Elsevier, e.g. Acta Materialia or Materials
+% Characterization: elsarticle; Springer, e.g. Integrating Materials and
+% Manufacturing Innovation: sn-jnl) and keep the \input lines.
+%
+% Compile here:  tectonic main.tex   (or pdflatex + bibtex)
+% On Overleaf:   upload this folder, plus the PDFs from ../figures/paper/
+%                into a folder named figures/.
+% ---------------------------------------------------------------------------
+\documentclass[10pt,twocolumn]{article}
+
+\usepackage[margin=2cm]{geometry}
+\usepackage{amsmath,amssymb,bbm}   % equations; \mathbb{1} for the indicator
+\usepackage{booktabs}              % \toprule, \midrule, \bottomrule in tables
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+
+% Figures: figures/ next to this file (Overleaf), or the folder the plotting
+% scripts write to (../figures/paper/, this repository).
+\graphicspath{{figures/}{../figures/paper/}}
+
+\title{[Title]}
+\author{[Authors and affiliations]}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+[Abstract]
+\end{abstract}
+
+\section{Introduction}
+[EBSD maps carry two kinds of error, scatter and misindexing. Current fixes are
+hand-tuned filters evaluated on about ten maps; deep-learning work cleans the
+diffraction patterns, which most laboratories do not store. Our contribution.]
+
+\section{Related work}
+[Map filters (Hielscher 2019, Atindama 2023); pattern denoising (Andrews 2023,
+Mani Krishna 2023, Prajapat 2026); deep learning for indexing and segmentation
+(Shen 2019, Ding 2020, Kaufmann 2021, Martinez Ostormujof 2022).]
+
+\section{Methods}
+\input{data_and_noise}
+
+% [Network: learned neighbour weights, symmetry alignment, gate]
+% [Training: loss, optimiser, three runs]
+% [Baselines: MTEX filters, tuned on validation maps]
+
+\input{results}
+
+\section{Discussion}
+[Why the error falls by a fixed fraction; what the network learned;
+limitations: synthetic training data, cubic symmetry only, 2D maps.]
+
+\section{Conclusion}
+[Conclusion]
+
+\bibliographystyle{unsrt}
+\bibliography{references}
+
+\end{document}

@@ -183160,3 +183160,261 @@ Copying file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/check
 Average throughput: 340.9MiB/s
 [2026-10-12T23:11:20.480405-04:00] Finished: checkpoints
 [2026-10-12T23:11:20.480470-04:00] All folders synced successfully.
+[2026-10-13T23:00:02.198992-04:00] Starting upload.
+[2026-10-13T23:00:02.199490-04:00] Syncing /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets -> gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/datasets
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/logging/__init__.py", line 1155, in emit
+    self.flush()
+    ~~~~~~~~~~^^
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/logging/__init__.py", line 1137, in flush
+    self.stream.flush()
+    ~~~~~~~~~~~~~~~~~^^
+OSError: [Errno 122] Disk quota exceeded
+Call stack:
+  File "/usr/bin/../lib/google-cloud-sdk/lib/gcloud.py", line 186, in <module>
+    main()
+  File "/usr/bin/../lib/google-cloud-sdk/lib/gcloud.py", line 182, in main
+    sys.exit(gcloud_main.main())
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/crash_handling.py", line 216, in Wrapper
+    target_function(*args, **kwargs)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/gcloud_main.py", line 225, in main
+    gcloud_cli.Execute()
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/cli.py", line 911, in Execute
+    args = self.__parser.parse_args(_ApplyFlagsFile(argv))
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 772, in parse_args
+    namespace, unknown_args, _ = self._ParseKnownArgs(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 563, in _ParseKnownArgs
+    namespace, unknown_args = parser.parse_known_args(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 735, in parse_known_args
+    namespace, unknown_args, error_context = self._ParseKnownArgs(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 563, in _ParseKnownArgs
+    namespace, unknown_args = parser.parse_known_args(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1735, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1923, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1900, in consume_positionals
+    take_action(action, args)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1809, in take_action
+    action(self, namespace, argument_values, option_string)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 1369, in __call__
+    super(CommandGroupAction, self).__call__(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1111, in __call__
+    namespace, arg_strings = parser.parse_known_args(arg_strings, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 735, in parse_known_args
+    namespace, unknown_args, error_context = self._ParseKnownArgs(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 563, in _ParseKnownArgs
+    namespace, unknown_args = parser.parse_known_args(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1735, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1923, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1900, in consume_positionals
+    take_action(action, args)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1793, in take_action
+    argument_values = self._get_values(action, argument_strings)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 1271, in _get_values
+    return super(ArgumentParser, self)._get_values(action, arg_strings)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 2229, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 850, in _check_value
+    if is_subparser and action.IsValidChoice(arg):
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 1343, in IsValidChoice
+    return self._calliope_command.IsValidSubElement(choice)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/backend.py", line 713, in IsValidSubElement
+    return bool(self.LoadSubElement(name))
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/backend.py", line 788, in LoadSubElement
+    element = Command(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/backend.py", line 932, in __init__
+    super(Command, self).__init__(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/backend.py", line 114, in __init__
+    log.debug('Loaded Command Group: %s', path)
+Message: 'Loaded Command Group: %s'
+Arguments: (['gcloud', 'storage', 'rsync'],)
+WARNING: Could not store access token in cache: disk I/O error
+WARNING: Could not store access token in cache: disk I/O error
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/datasets/**, worker process 359711 thread 13229636740928 listed 32000...
+ERROR: Unable to write file [/home/aiosman/.config/gcloud/surface_data/storage/rsync_files/CHUNK_cbef1e588bea06f7514706021342701d5795a3b6.INTS_datasets_**_1]: [Errno 122] Disk quota exceeded
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/logging/__init__.py", line 1155, in emit
+    self.flush()
+    ~~~~~~~~~~^^
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/logging/__init__.py", line 1137, in flush
+    self.stream.flush()
+    ~~~~~~~~~~~~~~~~~^^
+OSError: [Errno 122] Disk quota exceeded
+Call stack:
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/threading.py", line 1044, in _bootstrap
+    self._bootstrap_inner()
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/threading.py", line 1082, in _bootstrap_inner
+    self._context.run(self.run)
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/threading.py", line 1024, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/crash_handling.py", line 216, in Wrapper
+    target_function(*args, **kwargs)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/storage/tasks/task_graph_executor.py", line 316, in _thread_worker
+    task_output = task_wrapper.task.execute(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/storage/tasks/get_sorted_list_file_task.py", line 205, in execute
+    log.status.Print(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/core/log.py", line 200, in Print
+    self._Write(plain_text, styled_text)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/core/log.py", line 216, in _Write
+    self.__logger.info(msg)
+Message: 'At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/**, worker process 359711 thread 13229636740928 listed 32000...\n'
+Arguments: ()
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/**, worker process 359711 thread 13229636740928 listed 32000...
+ERROR: Unable to write file [/home/aiosman/.config/gcloud/surface_data/storage/rsync_files/CHUNK_90950efeffbde9dc7a14f65b4577644502238a0c.oise_datasets_**_1]: [Errno 122] Disk quota exceeded
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/storage/rsync_command_util.py", line 165, in try_to_delete_file
+    os.remove(path)
+    ~~~~~~~~~^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/aiosman/.config/gcloud/surface_data/storage/rsync_files/FULL_5b2d3e9b1ff3c9c0c3200033aa23b03e93070032.n_Noise_datasets'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/logging/__init__.py", line 1155, in emit
+    self.flush()
+    ~~~~~~~~~~^^
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/logging/__init__.py", line 1137, in flush
+    self.stream.flush()
+    ~~~~~~~~~~~~~~~~~^^
+OSError: [Errno 122] Disk quota exceeded
+Call stack:
+  File "/usr/bin/../lib/google-cloud-sdk/lib/gcloud.py", line 186, in <module>
+    main()
+  File "/usr/bin/../lib/google-cloud-sdk/lib/gcloud.py", line 182, in main
+    sys.exit(gcloud_main.main())
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/crash_handling.py", line 216, in Wrapper
+    target_function(*args, **kwargs)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/gcloud_main.py", line 225, in main
+    gcloud_cli.Execute()
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/cli.py", line 951, in Execute
+    resources = calliope_command.Run(cli=self, args=args)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/backend.py", line 968, in Run
+    resources = command_instance.Run(args)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/surface/storage/rsync.py", line 478, in Run
+    rsync_command_util.try_to_delete_file(path)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/storage/rsync_command_util.py", line 167, in try_to_delete_file
+    log.debug('Failed to delete file {}: {}'.format(path, e))
+Message: "Failed to delete file /home/aiosman/.config/gcloud/surface_data/storage/rsync_files/FULL_5b2d3e9b1ff3c9c0c3200033aa23b03e93070032.n_Noise_datasets: [Errno 2] No such file or directory: '/home/aiosman/.config/gcloud/surface_data/storage/rsync_files/FULL_5b2d3e9b1ff3c9c0c3200033aa23b03e93070032.n_Noise_datasets'"
+Arguments: ()
+[2026-10-13T23:00:39.791543-04:00] ERROR: Sync failed for datasets.
+[2026-10-13T23:00:39.792511-04:00] Syncing /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints -> gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/logging/__init__.py", line 1155, in emit
+    self.flush()
+    ~~~~~~~~~~^^
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/logging/__init__.py", line 1137, in flush
+    self.stream.flush()
+    ~~~~~~~~~~~~~~~~~^^
+OSError: [Errno 122] Disk quota exceeded
+Call stack:
+  File "/usr/bin/../lib/google-cloud-sdk/lib/gcloud.py", line 186, in <module>
+    main()
+  File "/usr/bin/../lib/google-cloud-sdk/lib/gcloud.py", line 182, in main
+    sys.exit(gcloud_main.main())
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/crash_handling.py", line 216, in Wrapper
+    target_function(*args, **kwargs)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/gcloud_main.py", line 225, in main
+    gcloud_cli.Execute()
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/cli.py", line 911, in Execute
+    args = self.__parser.parse_args(_ApplyFlagsFile(argv))
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 772, in parse_args
+    namespace, unknown_args, _ = self._ParseKnownArgs(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 563, in _ParseKnownArgs
+    namespace, unknown_args = parser.parse_known_args(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 735, in parse_known_args
+    namespace, unknown_args, error_context = self._ParseKnownArgs(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 563, in _ParseKnownArgs
+    namespace, unknown_args = parser.parse_known_args(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1735, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1923, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1900, in consume_positionals
+    take_action(action, args)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1809, in take_action
+    action(self, namespace, argument_values, option_string)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 1369, in __call__
+    super(CommandGroupAction, self).__call__(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1111, in __call__
+    namespace, arg_strings = parser.parse_known_args(arg_strings, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 735, in parse_known_args
+    namespace, unknown_args, error_context = self._ParseKnownArgs(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 563, in _ParseKnownArgs
+    namespace, unknown_args = parser.parse_known_args(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1735, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1923, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1900, in consume_positionals
+    take_action(action, args)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 1793, in take_action
+    argument_values = self._get_values(action, argument_strings)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 1271, in _get_values
+    return super(ArgumentParser, self)._get_values(action, arg_strings)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/third_party/argparse/__init__.py", line 2229, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 850, in _check_value
+    if is_subparser and action.IsValidChoice(arg):
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/parser_extensions.py", line 1343, in IsValidChoice
+    return self._calliope_command.IsValidSubElement(choice)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/backend.py", line 713, in IsValidSubElement
+    return bool(self.LoadSubElement(name))
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/backend.py", line 788, in LoadSubElement
+    element = Command(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/backend.py", line 932, in __init__
+    super(Command, self).__init__(
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/backend.py", line 114, in __init__
+    log.debug('Loaded Command Group: %s', path)
+Message: 'Loaded Command Group: %s'
+Arguments: (['gcloud', 'storage', 'rsync'],)
+WARNING: Could not store access token in cache: disk I/O error
+At file:///project/community/aiosman/MAPS_DENOISING_Orientation_Noise/checkpoints/**, worker process 361412 thread 21908228843328 listed 26...
+ERROR: Unable to write file [/home/aiosman/.config/gcloud/surface_data/storage/rsync_files/CHUNK_d6392c1f7872a1666590ae15d2fe55a55c34ca6d.e_checkpoints_**_1]: [Errno 122] Disk quota exceeded
+WARNING: Could not store access token in cache: disk I/O error
+At gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS/checkpoints/**, worker process 361412 thread 21908228843328 listed 27...
+ERROR: Unable to write file [/home/aiosman/.config/gcloud/surface_data/storage/rsync_files/CHUNK_5561537f0f07c45680348a2d7ff08ff4075d7dc2.S_checkpoints_**_1]: [Errno 122] Disk quota exceeded
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/storage/rsync_command_util.py", line 165, in try_to_delete_file
+    os.remove(path)
+    ~~~~~~~~~^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/aiosman/.config/gcloud/surface_data/storage/rsync_files/FULL_ef8bb2902ffe509be9d8e482ab435391fe31315c.oise_checkpoints'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/logging/__init__.py", line 1155, in emit
+    self.flush()
+    ~~~~~~~~~~^^
+  File "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/lib/python3.14/logging/__init__.py", line 1137, in flush
+    self.stream.flush()
+    ~~~~~~~~~~~~~~~~~^^
+OSError: [Errno 122] Disk quota exceeded
+Call stack:
+  File "/usr/bin/../lib/google-cloud-sdk/lib/gcloud.py", line 186, in <module>
+    main()
+  File "/usr/bin/../lib/google-cloud-sdk/lib/gcloud.py", line 182, in main
+    sys.exit(gcloud_main.main())
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/crash_handling.py", line 216, in Wrapper
+    target_function(*args, **kwargs)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/gcloud_main.py", line 225, in main
+    gcloud_cli.Execute()
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/cli.py", line 951, in Execute
+    resources = calliope_command.Run(cli=self, args=args)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/calliope/backend.py", line 968, in Run
+    resources = command_instance.Run(args)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/surface/storage/rsync.py", line 478, in Run
+    rsync_command_util.try_to_delete_file(path)
+  File "/usr/bin/../lib/google-cloud-sdk/lib/googlecloudsdk/command_lib/storage/rsync_command_util.py", line 167, in try_to_delete_file
+    log.debug('Failed to delete file {}: {}'.format(path, e))
+Message: "Failed to delete file /home/aiosman/.config/gcloud/surface_data/storage/rsync_files/FULL_ef8bb2902ffe509be9d8e482ab435391fe31315c.oise_checkpoints: [Errno 2] No such file or directory: '/home/aiosman/.config/gcloud/surface_data/storage/rsync_files/FULL_ef8bb2902ffe509be9d8e482ab435391fe31315c.oise_checkpoints'"
+Arguments: ()
+[2026-10-13T23:00:42.063846-04:00] ERROR: Sync failed for checkpoints.
+[2026-10-13T23:00:42.063905-04:00] Sync finished with errors.
