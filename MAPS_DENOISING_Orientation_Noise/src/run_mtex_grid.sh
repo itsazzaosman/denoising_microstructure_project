@@ -18,7 +18,7 @@
 # WORKERS MATLAB processes run side by side, one test set each, because the
 # general QOS runs only one job per user at a time. Outputs that exist are
 # skipped, so after the 12 h limit simply submit again to continue.
-# Each set's MATLAB output goes to datasets/mtex_out_<set>/matlab.log.
+# Each set's MATLAB output goes to datasets/results_test_set_mtex/<set>/matlab.log.
 
 set -euo pipefail
 
@@ -36,10 +36,10 @@ echo "sets: $SETS"
 
 run_set() {
     local set="$1"
-    mkdir -p "$EXP/datasets/mtex_out_$set"
+    mkdir -p "$EXP/datasets/results_test_set_mtex/$set"
     "$MATLAB" -batch "addpath('$MTEX'); startup_mtex; addpath('$EXP/src'); run_mtex_grid('$set', 'maps', $MAPS)" \
-        >> "$EXP/datasets/mtex_out_$set/matlab.log" 2>&1 \
-        && echo "$(date +%T) done   $set" || echo "$(date +%T) FAILED $set (see datasets/mtex_out_$set/matlab.log)"
+        >> "$EXP/datasets/results_test_set_mtex/$set/matlab.log" 2>&1 \
+        && echo "$(date +%T) done   $set" || echo "$(date +%T) FAILED $set (see datasets/results_test_set_mtex/$set/matlab.log)"
 }
 export -f run_set
 export MATLAB MTEX EXP MAPS

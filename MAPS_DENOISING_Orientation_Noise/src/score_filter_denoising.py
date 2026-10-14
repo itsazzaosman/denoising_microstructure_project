@@ -19,9 +19,11 @@ interiors while leaving every misindexed pixel untouched.
 Usage
 -----
     python score_denoising.py --clean clean.txt --noisy noisy.txt \
-        --mask noisy.txt.badmask.npy --results mtex_out/ --shape 128 128
+        --mask noisy.txt.badmask.npy \
+        --results datasets/results_test_set_model/scatter5 datasets/results_test_set_mtex/scatter5 \
+        --shape 128 128
 
-The results folder is scanned for files named <something>__<method>.txt, which
+Each results folder is scanned for files named <something>__<method>.txt, which
 is what run_mtex_baseline.m writes. The part after the double underscore is
 used as the method name in the table.
 """
@@ -138,8 +140,10 @@ def main():
     p.add_argument("--clean", required=True, help="clean Euler .txt (ground truth)")
     p.add_argument("--noisy", required=True, help="noisy Euler .txt (the input)")
     p.add_argument("--mask", default=None, help="the .badmask.npy for this map")
-    p.add_argument("--results", required=True,
-                   help="folder of denoised .txt files, named <stem>__<method>.txt")
+    p.add_argument("--results", nargs="+", required=True, help="one or more folders of denoised .txt files named "
+                        "<stem>__<method>.txt, e.g. datasets/results_test_set_model/<set> "
+                        "and datasets/results_test_set_mtex/<set>; a folder that does "
+                        "not exist is skipped")
     p.add_argument("--shape", nargs=2, type=int, required=True, metavar=("NY", "NX"))
     args = p.parse_args()
 
@@ -166,14 +170,14 @@ def main():
     # scored against map 1's truth and printed as another "unet" row.
     import re
     mid = re.search(r"map_(\d+)", Path(args.clean).name)
-    files = sorted(Path(args.results).glob("*__*.txt"))
+    files = sorted(f for d in args.results for f in Path(d).glob("*__*.txt"))
     if mid:
         want = int(mid.group(1))
         files = [f for f in files
                  if (m := re.search(r"map_(\d+)", f.name)) and int(m.group(1)) == want]
     if not files:
         print(f"warning: no *__*.txt files for map {mid.group(1) if mid else '?'} "
-              f"in {args.results}")
+              f"in {' '.join(args.results)}")
     for f in files:
         method = f.stem.split("__")[-1]
         try:

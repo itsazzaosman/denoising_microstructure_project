@@ -25,6 +25,8 @@ import shutil
 import zipfile
 from pathlib import Path
 
+from paths import noise_dir
+
 ROOT = Path(__file__).resolve().parent.parent
 
 README = """\
@@ -62,7 +64,7 @@ def main():
 
     n = 0
     for s in sets:
-        src = ROOT / f"datasets/noise_{s}"
+        src = noise_dir(s)
         dst = out / "ang" / s
         dst.mkdir(parents=True, exist_ok=True)
         for m in args.maps:

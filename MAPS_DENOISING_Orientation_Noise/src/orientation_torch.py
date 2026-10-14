@@ -641,21 +641,19 @@ def _self_test():
 
     print("\nreal map data")
     try:
-        from pathlib import Path
-        root = Path(__file__).resolve().parent.parent
-        qc = onp.euler_to_quat(onp.load_euler(
-            root / "datasets/clean_euler/map_00001_clean_euler.txt"))
+        from paths import clean_map, noise_dir
+        qc = onp.euler_to_quat(onp.load_euler(clean_map(1)))
         qn = onp.euler_to_quat(onp.load_euler(
-            root / "datasets/noisy_mis05/map_00001_clean_euler_noisy.txt"))
+            noise_dir("scatter1_mis6") / "map_00001_clean_euler_noisy.txt"))
         d_np = onp.disorientation_deg(qc, qn)
         d_pt = disorientation_deg(torch.from_numpy(qc), torch.from_numpy(qn)).numpy()
         check("map 1 disorientation matches numpy", float(np.abs(d_np - d_pt).max()), 1e-8)
         print(f"        median {np.median(d_pt):.6f} deg, "
-              f">10 deg {100 * (d_pt > 10).mean():.2f}%  (expect 0.521763 / 4.95%)")
+              f">10 deg {100 * (d_pt > 10).mean():.2f}%")
 
         qmap = torch.from_numpy(qc).reshape(1, 128, 128, 4)
         qmapn = torch.from_numpy(qn).reshape(1, 128, 128, 4)
-        bad = np.load(root / "datasets/noisy_mis05/map_00001_clean_euler_noisy.txt.badmask.npy")
+        bad = np.load(noise_dir("scatter1_mis6") / "map_00001_clean_euler_noisy.txt.badmask.npy")
         mis = local_misfit_deg(qmapn)[0, 0].numpy()
         sep = np.median(mis[bad]) - np.percentile(mis[~bad], 99)
         print(f"        misfit channel: corrupted median {np.median(mis[bad]):.1f} deg vs "

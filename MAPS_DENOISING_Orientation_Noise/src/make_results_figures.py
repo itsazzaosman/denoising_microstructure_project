@@ -10,7 +10,7 @@ is run, so this works on a login node).
                                     of each against the truth
 
 The denoised maps are the predictions eval_model.sh saved in
-datasets/mtex_out_<set>/<stem>__<run>.txt.
+datasets/results_test_set_model/<set>/<stem>__<run>.txt.
 
 Usage
 -----
@@ -30,6 +30,7 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from orientation import disorientation_deg, euler_to_quat, load_euler
 from plot_maps import ipf_z_color
+from paths import MODEL_RESULTS, clean_map, noise_dir
 
 ROOT = Path(__file__).resolve().parent.parent
 SHAPE = (128, 128)
@@ -74,15 +75,15 @@ def training_loss(runs, out):
 
 def examples(run, map_id, out):
     stem = f"map_{map_id:05d}_clean_euler_noisy"
-    clean = euler_to_quat(load_euler(ROOT / f"datasets/clean_euler/map_{map_id:05d}_clean_euler.txt"))
+    clean = euler_to_quat(load_euler(clean_map(map_id)))
     norm = LogNorm(vmin=0.1, vmax=60)
     fig = plt.figure(figsize=(7.0, 5.9))
     gs = fig.add_gridspec(3, 5, width_ratios=[1, 1, 1, 1, 0.06], wspace=0.06, hspace=0.3,
                           left=0.05, right=0.88, top=0.94, bottom=0.01)
     letters = iter("abcdefghijkl")
     for r, (name, label) in enumerate(CONDITIONS):
-        noisy = euler_to_quat(load_euler(ROOT / f"datasets/noise_{name}/{stem}.txt"))
-        den = euler_to_quat(load_euler(ROOT / f"datasets/mtex_out_{name}/{stem}_noisy__{run}.txt"))
+        noisy = euler_to_quat(load_euler(noise_dir(name) / f"{stem}.txt"))
+        den = euler_to_quat(load_euler(MODEL_RESULTS / name / f"{stem}_noisy__{run}.txt"))
         d_in, d_out = disorientation_deg(noisy, clean), disorientation_deg(den, clean)
         panels = [(ipf_z_color(noisy).reshape(*SHAPE, 3), "noisy input"),
                   (ipf_z_color(den).reshape(*SHAPE, 3), "denoised"),

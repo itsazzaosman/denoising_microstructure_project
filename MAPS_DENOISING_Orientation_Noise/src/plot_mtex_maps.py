@@ -30,7 +30,7 @@ Usage
 
     # any other layout: name the folders yourself
     python src/plot_mtex_maps.py --ang-dir path/to/ang_files \
-        --results path/to/mtex_out --out figures/mtex_maps/other
+        --results datasets/results_test_set_mtex_old/scatter5_nograins --out figures/mtex_maps/other
 """
 
 import argparse
@@ -46,6 +46,7 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import LogNorm
 
 from orientation import disorientation_deg, euler_to_quat, load_euler
+from paths import CLEAN_DIR, noise_dir
 from plot_maps import ipf_rgb, ipf_z_color
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -207,12 +208,12 @@ def main():
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--scatter", type=float, default=None,
                    help="noise level; fills in --ang-dir, --results and --out for "
-                        "datasets/noise_scatterN and datasets/mtex_out_scatterN")
+                        "the test set scatterN and datasets/results_test_set_mtex/scatterN")
     p.add_argument("--ang-dir", type=Path, default=None,
                    help="folder of map_XXXXX_clean_euler_noisy_noisy.ang (the MTEX inputs)")
     p.add_argument("--results", type=Path, default=None,
                    help="folder of map_XXXXX_..._noisy_noisy__<method>.txt (the MTEX outputs)")
-    p.add_argument("--clean-dir", type=Path, default=ROOT / "datasets/clean_euler")
+    p.add_argument("--clean-dir", type=Path, default=CLEAN_DIR)
     p.add_argument("--out", type=Path, default=None)
     p.add_argument("--maps", type=int, nargs="+", default=[1], help="map ids (default: 1)")
     p.add_argument("--all", action="store_true",
@@ -224,8 +225,8 @@ def main():
 
     if args.scatter is not None:
         tag = f"scatter{args.scatter:g}"
-        args.ang_dir = args.ang_dir or ROOT / f"datasets/noise_{tag}/ang_files"
-        args.results = args.results or ROOT / f"datasets/mtex_out_{tag}"
+        args.ang_dir = args.ang_dir or noise_dir(tag) / "ang_files"
+        args.results = args.results or ROOT / f"datasets/results_test_set_mtex/{tag}"
         args.out = args.out or ROOT / f"figures/mtex_maps/{tag}"
         args.label = f"{args.scatter:g}$\\degree$ scatter"
     else:

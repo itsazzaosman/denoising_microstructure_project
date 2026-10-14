@@ -15,10 +15,11 @@ single specks that are easy to miss in an IPF map but glow brightly here.
 Usage
 -----
     python plot_maps.py --clean clean.txt --noisy noisy.txt \
-        --results mtex_out/ --shape 128 128 --out figures/
+        --results datasets/results_test_set_model/scatter5 datasets/results_test_set_mtex/scatter5 \
+        --shape 128 128 --out figures/
 
     # only some methods, in a chosen order
-    python plot_maps.py --clean c.txt --noisy n.txt --results mtex_out/ \
+    python plot_maps.py --clean c.txt --noisy n.txt --results datasets/results_test_set_mtex/scatter5 \
         --shape 128 128 --only spline clean-spline median clean-median
 
     # zoom into a region to see boundaries properly
@@ -161,7 +162,10 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--clean", required=True)
     p.add_argument("--noisy", required=True)
-    p.add_argument("--results", default=None, help="folder of <stem>__<method>.txt")
+    p.add_argument("--results", nargs="+", default=None, help="one or more folders of denoised .txt files named "
+                        "<stem>__<method>.txt, e.g. datasets/results_test_set_model/<set> "
+                        "and datasets/results_test_set_mtex/<set>; a folder that does "
+                        "not exist is skipped")
     p.add_argument("--shape", nargs=2, type=int, required=True, metavar=("NY", "NX"))
     p.add_argument("--out", default="figures")
     p.add_argument("--only", nargs="*", default=None,
@@ -190,7 +194,7 @@ def main():
         # up whichever map sorted last and plots it against map 1's truth.
         import re
         want = re.search(r"map_(\d+)", Path(args.clean).name)
-        files = sorted(Path(args.results).glob("*__*.txt"))
+        files = sorted(f for d in args.results for f in Path(d).glob("*__*.txt"))
         if want:
             wid = int(want.group(1))
             files = [f for f in files

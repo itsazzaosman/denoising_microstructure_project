@@ -3,19 +3,19 @@
 Run the trained model over the held-out maps and write its output in the same
 format MTEX produces.
 
-Files land next to the MTEX outputs for the same noise set, named
-<stem>__unet.txt, so score_dataset.py picks the model up automatically
-alongside the twelve filters and scores it with exactly the same code. No
-separate metric path means no chance of the model being flattered by a
-different definition.
+Files are named <stem>__<method-name>.txt, the naming the MTEX outputs use,
+so score_dataset.py scores the model and the filters with exactly the same
+code. No separate metric path means no chance of the model being flattered by
+a different definition.
 
 Usage
 -----
     python inference.py --checkpoint ../checkpoints/checkpoints_scatter5/best.pth \
-        --clean-dir ../datasets/clean_euler --noisy-dir ../datasets/noise_scatter5
+        --clean-dir ../datasets/clean_euler_zip_unzip/clean_euler \
+        --noisy-dir ../datasets/noise_scatter_misindexing/noise_scatter5
 
---out defaults to the matching MTEX folder: datasets/noise_scatter5 ->
-datasets/mtex_out_scatter5.
+--out defaults to the model results folder of the same test set:
+noise_scatter5 -> datasets/results_test_set_model/scatter5.
 """
 
 import argparse
@@ -29,6 +29,7 @@ from torch.utils.data import DataLoader
 from architecture import GatedOrientationUNet, boundary_mask
 from dataset import DirMaps, TestMaps
 from orientation_torch import disorientation_deg, quat_to_euler
+from paths import MODEL_RESULTS
 from provenance import append_provenance, provenance
 
 HEADER = "EulerAngles_0 EulerAngles_1 EulerAngles_2"
@@ -39,8 +40,8 @@ def main():
     p.add_argument("--checkpoint", required=True,
                    help="e.g. checkpoints/checkpoints_scatter5/best.pth")
     p.add_argument("--out", default=None,
-                   help="output folder; defaults to the MTEX folder matching "
-                        "--noisy-dir (noise_X -> mtex_out_X)")
+                   help="output folder; defaults to the model results folder "
+                        "of --noisy-dir (noise_X -> results_test_set_model/X)")
     p.add_argument("--method-name", default="unet",
                    help="suffix after __ in the output filename; this is the "
                         "name the scoring table will show")
@@ -58,8 +59,8 @@ def main():
         noisy = Path(args.noisy_dir) if args.noisy_dir else None
         if noisy is None or not noisy.name.startswith("noise_"):
             p.error("pass --out, or a --noisy-dir named noise_<set> so the "
-                    "output folder mtex_out_<set> can be derived from it")
-        args.out = str(noisy.parent / noisy.name.replace("noise_", "mtex_out_", 1))
+                    "output folder results_test_set_model/<set> can be derived from it")
+        args.out = str(MODEL_RESULTS / noisy.name[len("noise_"):])
 
     device =torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ck = torch.load(args.checkpoint, map_location=device, weights_only=False)

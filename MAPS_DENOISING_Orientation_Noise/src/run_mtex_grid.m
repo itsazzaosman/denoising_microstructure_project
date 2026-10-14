@@ -5,10 +5,10 @@ function run_mtex_grid(setName, varargin)
 %   run_mtex_grid('test_random', 'maps', 1:10)
 %   run_mtex_grid('scatter15', 'filters', {'spline'})
 %
-% Reads   datasets/noise_<set>/ang_files/map_XXXXX_clean_euler_noisy_noisy.ang
-% Writes  datasets/mtex_out_<set>/map_XXXXX_clean_euler_noisy_noisy__<filter>.txt
+% Reads   datasets/noise_scatter_misindexing/noise_<set>/ang_files/map_XXXXX_clean_euler_noisy_noisy.ang
+% Writes  datasets/results_test_set_mtex/<set>/map_XXXXX_clean_euler_noisy_noisy__<filter>.txt
 %         (Euler angles, DREAM.3D pixel order, the format score_dataset.py reads)
-%         datasets/mtex_out_<set>/mtex_log.csv  (time and unfilled pixels per output)
+%         datasets/results_test_set_mtex/<set>/mtex_log.csv  (time and unfilled pixels per output)
 %
 % Filters (default all twelve): mean, median, kuwahara, spline, halfquad,
 % infconv applied grain by grain to the raw map, and clean-<filter>: first
@@ -39,8 +39,8 @@ p.parse(varargin{:});
 opt = p.Results;
 
 root   = fileparts(fileparts(mfilename('fullpath')));      % src/.. = project
-angDir = fullfile(root, 'datasets', ['noise_' setName], 'ang_files');
-outDir = fullfile(root, 'datasets', ['mtex_out_' setName]);
+angDir = fullfile(root, 'datasets', 'noise_scatter_misindexing', ['noise_' setName], 'ang_files');
+outDir = fullfile(root, 'datasets', 'results_test_set_mtex', setName);
 if ~isfolder(angDir), error('no .ang folder %s', angDir); end
 if ~isfolder(outDir), mkdir(outDir); end
 
@@ -80,7 +80,7 @@ for k = 1:numel(opt.maps)
       small = grains(grains.numPixel < opt.minPixel);
       ebsdC = ebsd(~ismember(ebsd.grainId, small.id));
       [~, ebsdC] = withGrains(ebsdC, thr);
-      ebsdS = smooth(ebsdC, F, 'fill');
+      ebsdS = smooth(ebsdC, F, 'fill', 'extrapolate');   % extrapolate: also fill deleted pixels on the map edge
     else
       ebsdS = smooth(ebsd, F);
     end
@@ -141,7 +141,7 @@ if ~isempty(tok)
   theta = repmat(str2double(tok{1}), size(maps));
   return
 end
-levels = readtable(fullfile(root, 'datasets', ['noise_' setName], 'levels.csv'));
+levels = readtable(fullfile(root, 'datasets', 'noise_scatter_misindexing', ['noise_' setName], 'levels.csv'));
 theta = zeros(size(maps));
 for k = 1:numel(maps)
   row = levels.map == maps(k);

@@ -136,7 +136,9 @@ maps the network was scored on, so the two can be compared map by map.
 
 **4.0 Run MATLAB SCRIPT** 
 ```bash
-cd 'C:\Users\STUDENT\OneDrive\Documenten\MATLAB\mtex-7.1.0\mtex_package'
+cd 'C:\Users\STUDENT\OneDrive\Documenten\MATLAB\mtex-7.1.0'
+startup_mtex
+cd 'C:\Users\STUDENT\OneDrive\Documenten\MATLAB\mtex-7.1.0\mtex_package\mtex_package\run_mtex_baseline.m'
 which run_mtex_baseline -all
 run_mtex_baseline
 ```

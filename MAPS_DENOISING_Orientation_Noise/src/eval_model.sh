@@ -11,15 +11,16 @@
 #SBATCH --error=/project/community/aiosman/logs/orient_eval_%j.err
 
 # Runs a trained model over every test set in configs/test_grid.txt, plus the
-# mixed-level set test_random (one random level per map), and scores
-# it against everything else already in each set's results folder (MTEX
-# filters, other runs). One GPU job, so nothing is predicted on a CPU.
+# mixed-level set test_random (one random level per map), and scores it
+# against the other models and the MTEX filters of each set. One GPU job, so
+# nothing is predicted on a CPU.
 #
 #     RUN=blind_learned_seed1 sbatch eval_model.sh
 #
 # RUN is a training experiment: its model is checkpoints/runs/<RUN>/best.pth
-# and its predictions are written as datasets/mtex_out_<set>/<stem>__<RUN>.txt,
-# so several runs can sit side by side in one score table. SETS overrides the
+# and its predictions are written as
+# datasets/results_test_set_model/<set>/<stem>__<RUN>.txt, so several runs sit
+# side by side in one score table, next to datasets/results_test_set_mtex/<set>/. SETS overrides the
 # list, e.g. SETS="scatter5 scatter5_mis6".
 
 set -euo pipefail
@@ -40,14 +41,14 @@ cd "$EXP/src"
 for SET in $SETS; do
     echo; echo "===== $SET ====="
     "$PYTHON" inference.py --checkpoint "$CKPT" --method-name "$RUN" \
-        --clean-dir "$EXP/datasets/clean_euler" --noisy-dir "$EXP/datasets/noise_$SET"
+        --clean-dir "$EXP/datasets/clean_euler_zip_unzip/clean_euler" --noisy-dir "$EXP/datasets/noise_scatter_misindexing/noise_$SET"
     mkdir -p "$EXP/figures/$SET"
     # --all-maps: MTEX has run on only some maps of some sets; score every map
     # and let the per-method n column show how many each method covers.
     "$PYTHON" score_dataset.py \
-        --clean-dir "$EXP/datasets/clean_euler" \
-        --noisy-dir "$EXP/datasets/noise_$SET" \
-        --results   "$EXP/datasets/mtex_out_$SET/" \
+        --clean-dir "$EXP/datasets/clean_euler_zip_unzip/clean_euler" \
+        --noisy-dir "$EXP/datasets/noise_scatter_misindexing/noise_$SET" \
+        --results   "$EXP/datasets/results_test_set_model/$SET" "$EXP/datasets/results_test_set_mtex/$SET" \
         --shape 128 128 --jobs 8 --all-maps \
         --csv "$EXP/figures/$SET/scores_mean.csv"
 done

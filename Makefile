@@ -5,8 +5,9 @@ BUCKET := gs://cmu-gpucloud-aiosman
 # MAP   : which map to look at, e.g. `make score MAP=00002`
 # SHAPE : grid size of the map, rows then columns
 # NOISE : which noise set to use, e.g. `make score-all NOISE=scatter7`. It picks
-#         the noisy maps (datasets/noise_<NOISE>), the MTEX + model outputs
-#         (datasets/mtex_out_<NOISE>) and the model (checkpoints/checkpoints_<NOISE>).
+#         the noisy maps (datasets/noise_scatter_misindexing/noise_<NOISE>), the model outputs
+#         (datasets/results_test_set_model/<NOISE>), the MTEX outputs
+#         (datasets/results_test_set_mtex/<NOISE>) and the model (checkpoints/checkpoints_<NOISE>).
 #         Its settings live in configs/noise/<NOISE>.yaml.
 # RUN   : a training experiment, configs/train/<RUN>.yaml, whose model is in
 #         checkpoints/runs/<RUN>. Without it, `infer` uses the old per-level
@@ -21,9 +22,12 @@ RUN   :=
 # `ebsd` env -- base has no torch.
 EBSD_PY := $(HOME)/miniconda3/envs/ebsd/bin/python
 
-CLEAN_DIR := $(PROJ)/datasets/clean_euler
-NOISY_DIR := $(PROJ)/datasets/noise_$(NOISE)
-RESULTS   := $(PROJ)/datasets/mtex_out_$(NOISE)
+CLEAN_DIR := $(PROJ)/datasets/clean_euler_zip_unzip/clean_euler
+TEST_SETS := $(PROJ)/datasets/noise_scatter_misindexing
+NOISY_DIR := $(TEST_SETS)/noise_$(NOISE)
+MODEL_OUT := $(PROJ)/datasets/results_test_set_model/$(NOISE)
+MTEX_OUT  := $(PROJ)/datasets/results_test_set_mtex/$(NOISE)
+RESULTS   := $(MODEL_OUT) $(MTEX_OUT)
 CKPT      := $(if $(RUN),$(PROJ)/checkpoints/runs/$(RUN)/best.pth,$(PROJ)/checkpoints/checkpoints_$(NOISE)/best.pth)
 FIGURES   := $(PROJ)/figures/$(NOISE)
 
@@ -56,7 +60,7 @@ upload:
 download:
 	gcloud storage rsync -r $(BUCKET)/DATASET_CHECKPOINTS/datasets ./DATASET_CHECKPOINTS/datasets
 
-# Print the numbers: how far each denoised map in $(RESULTS) sits from the
+# Print the numbers: how far each denoised map (model and MTEX) sits from the
 # truth. Use this when you want to RANK the filters -- it gives the mean
 # error per filter, split out over the misindexed pixels (--mask) and the
 # grain boundaries, so you can see whether a filter wins overall or only in
@@ -66,7 +70,7 @@ score:
 	  --clean  $(CLEAN) \
 	  --noisy  $(NOISY) \
 	  --mask   $(MASK) \
-	  --results $(RESULTS)/ \
+	  --results $(RESULTS) \
 	  --shape  $(SHAPE)
 
 # Draw the pictures into figures/: maps_ipf.png (IPF-Z colour maps, one panel
@@ -79,7 +83,7 @@ plot:
 	python $(PROJ)/src/plot_maps.py \
 	  --clean  $(CLEAN) \
 	  --noisy  $(NOISY) \
-	  --results $(RESULTS)/ \
+	  --results $(RESULTS) \
 	  --shape  $(SHAPE) \
 	  --out    $(FIGURES)/
 
@@ -93,20 +97,20 @@ score-all:
 	python $(PROJ)/src/score_dataset.py \
 	  --clean-dir $(CLEAN_DIR) \
 	  --noisy-dir $(NOISY_DIR) \
-	  --results   $(RESULTS)/ \
+	  --results   $(RESULTS) \
 	  --shape     $(SHAPE) \
 	  --jobs      8 \
 	  --csv       $(FIGURES)/scores_mean.csv
 
 # Re-score every test set (the 28-set grid plus test_random) from the predictions
-# already saved in datasets/mtex_out_<set>/, without running any model: one
+# already saved in datasets/results_test_set_{model,mtex}/<set>/, without running any model: one
 # figures/<set>/scores_mean.csv per set. Run after evaluations or new MTEX
 # outputs land. CPU only, about 20 minutes.
 score-grid:
 	for S in $$(cat $(PROJ)/configs/test_grid.txt) test_random; do \
 	  mkdir -p $(PROJ)/figures/$$S; \
 	  python $(PROJ)/src/score_dataset.py --clean-dir $(CLEAN_DIR) \
-	    --noisy-dir $(PROJ)/datasets/noise_$$S --results $(PROJ)/datasets/mtex_out_$$S/ \
+	    --noisy-dir $(TEST_SETS)/noise_$$S --results $(PROJ)/datasets/results_test_set_model/$$S $(PROJ)/datasets/results_test_set_mtex/$$S \
 	    --shape $(SHAPE) --jobs 8 --all-maps --csv $(PROJ)/figures/$$S/scores_mean.csv \
 	    | sed -n '/^method/,/^====/p'; \
 	done
@@ -122,7 +126,7 @@ cache:
 	$(EBSD_PY) $(PROJ)/src/prepare_cache.py --n-train 12000 --jobs 16
 
 # Build a test set from its experiment file, configs/noise/$(NOISE).yaml ->
-# datasets/noise_$(NOISE). Maps that already exist are skipped, so this also
+# $(NOISY_DIR). Maps that already exist are skipped, so this also
 # resumes an interrupted run. Each run is logged in provenance.json there.
 noise:
 	python $(PROJ)/src/add_ebsd_noise.py --config $(PROJ)/configs/noise/$(NOISE).yaml \
@@ -140,7 +144,7 @@ train-gpu:
 	cd $(PROJ)/src && sbatch --job-name=$(or $(CONFIG),ebsd_orient_gpu) --partition=preempt \
 	  --qos=preempt_qos --time=2-00:00:00 train_model.sh --resume auto
 
-# Predict the held-out maps and drop the results into $(RESULTS) as
+# Predict the held-out maps and drop the results into $(MODEL_OUT) as
 # <stem>__unet.txt, so score-all compares them against the filters using the
 # same code path. Both job scripts already do this when training ends.
 infer:
@@ -148,7 +152,7 @@ infer:
 	  --checkpoint $(CKPT) \
 	  --clean-dir  $(CLEAN_DIR) \
 	  --noisy-dir  $(NOISY_DIR) \
-	  --out        $(RESULTS) \
+	  --out        $(MODEL_OUT) \
 	  --method-name $(or $(RUN),unet)
 
 watch:
@@ -185,4 +189,4 @@ maps: score plot
 
 
 #python src/plot_mtex_maps.py --ang-dir datasets/noise_scatter9/ang_files \
-  --results datasets/mtex_out_scatter9_nograins --out figures/mtex_maps/scatter9_nograins --all
+  --results datasets/results_test_set_mtex_old/scatter5_nograins --out figures/mtex_maps/scatter5_nograins --all

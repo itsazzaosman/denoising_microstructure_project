@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Divide datasets/clean_euler into train / validation / test.
+Divide the clean maps (paths.CLEAN_DIR) into train / validation / test.
 
     test   maps    1-500     the maps MTEX was run on; every noise_* test set uses them
     val    maps  501-1000    model selection and baseline tuning
@@ -34,15 +34,16 @@ import os
 import re
 from pathlib import Path
 
+from paths import CLEAN_DIR
+
 ROOT = Path(__file__).resolve().parent.parent
-CLEAN = ROOT / "datasets/clean_euler"
 SPLITS = {"test": (1, 500), "val": (501, 1000), "train": (1001, 40000)}
 MIN_BYTES = 400_000          # a healthy 128x128 map is 500-525 KB
 
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--clean-dir", default=str(CLEAN))
+    p.add_argument("--clean-dir", default=str(CLEAN_DIR))
     p.add_argument("--lists-dir", default=str(ROOT / "configs/splits"))
     p.add_argument("--links-dir", default=str(ROOT / "datasets/splits"))
     args = p.parse_args()
@@ -67,6 +68,8 @@ def main():
         out.mkdir(parents=True, exist_ok=True)
         for i in ids:
             link = out / maps[i].name
+            if link.is_symlink() and not link.exists():
+                link.unlink()                   # the clean maps have moved
             if not link.is_symlink():
                 # Relative, so the tree still resolves if the project moves.
                 link.symlink_to(os.path.relpath(maps[i], out))

@@ -35,6 +35,7 @@ import numpy as np
 from matplotlib.colors import ListedColormap
 
 from orientation import boundary_mask, euler_to_quat, load_euler
+from paths import CLEAN_DIR, noise_dir
 from plot_maps import ipf_rgb, ipf_z_color
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -84,10 +85,10 @@ def main():
     args = p.parse_args()
 
     stem = f"map_{args.map:05d}"
-    clean = euler_to_quat(load_euler(ROOT / f"datasets/clean_euler/{stem}_clean_euler.txt"))
+    clean = euler_to_quat(load_euler(CLEAN_DIR / f"{stem}_clean_euler.txt"))
 
     def noisy(name):
-        f = ROOT / f"datasets/noise_{name}/{stem}_clean_euler_noisy.txt"
+        f = noise_dir(name) / f"{stem}_clean_euler_noisy.txt"
         return euler_to_quat(load_euler(f)), np.load(str(f) + ".badmask.npy").ravel()
 
     plt.rcParams.update({"font.size": 8, "axes.titlesize": 8, "text.color": INK})

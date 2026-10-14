@@ -1,38 +1,50 @@
 {
   "git": {
-    "commit": "c556220badde0f9b3ae584de873d99c639b0f64e-dirty",
+    "commit": "5a8156780040a823a6a117154bb09925a81dd14d-dirty",
     "dirty_files": [
-      "MAPS_DENOISING_Orientation_Noise/src/check_noise.py",
+      "MAPS_DENOISING_Orientation_Noise/src/compare_with_mtex.py",
       "MAPS_DENOISING_Orientation_Noise/src/eval_model.sh",
+      "MAPS_DENOISING_Orientation_Noise/src/import_mtex_results.sh",
       "MAPS_DENOISING_Orientation_Noise/src/inference.py",
+      "MAPS_DENOISING_Orientation_Noise/src/make_mtex_package.py",
+      "MAPS_DENOISING_Orientation_Noise/src/make_results_figures.py",
+      "MAPS_DENOISING_Orientation_Noise/src/make_splits.py",
+      "MAPS_DENOISING_Orientation_Noise/src/orientation_torch.py",
+      "MAPS_DENOISING_Orientation_Noise/src/paths.py",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_error_maps.py",
       "MAPS_DENOISING_Orientation_Noise/src/plot_maps.py",
-      "MAPS_DENOISING_Orientation_Noise/src/plot_method_comparison.py",
       "MAPS_DENOISING_Orientation_Noise/src/plot_mtex_maps.py",
-      "MAPS_DENOISING_Orientation_Noise/src/plot_training.py",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_noise_examples.py",
+      "MAPS_DENOISING_Orientation_Noise/src/prepare_cache.py",
+      "MAPS_DENOISING_Orientation_Noise/src/run_mtex_baseline.m",
+      "MAPS_DENOISING_Orientation_Noise/src/run_mtex_grid.m",
+      "MAPS_DENOISING_Orientation_Noise/src/run_mtex_grid.sh",
       "MAPS_DENOISING_Orientation_Noise/src/score_dataset.py",
       "MAPS_DENOISING_Orientation_Noise/src/score_filter_denoising.py",
       "MAPS_DENOISING_Orientation_Noise/src/summarize_test_grid.py",
-      "MAPS_DENOISING_Orientation_Noise/src/train.py",
       "MAPS_DENOISING_Orientation_Noise/src/train_model.sh",
       "MAPS_DENOISING_Orientation_Noise/src/train_model_cpu.sh"
     ]
   },
-  "time": "2026-10-13T05:58:43-04:00",
+  "time": "2026-10-14T14:39:08-04:00",
   "host": "orchard-login-001",
   "slurm_job": null,
-  "command": "/home/aiosman/miniconda3/bin/python MAPS_DENOISING_Orientation_Noise/src/score_dataset.py --clean-dir MAPS_DENOISING_Orientation_Noise/datasets/clean_euler --noisy-dir MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter5 --results MAPS_DENOISING_Orientation_Noise/datasets/mtex_out_scatter5/ --shape 128 128 --jobs 8 --all-maps --csv MAPS_DENOISING_Orientation_Noise/figures/scatter5/scores_mean.csv",
+  "command": "/home/aiosman/miniconda3/bin/python MAPS_DENOISING_Orientation_Noise/src/score_dataset.py --clean-dir MAPS_DENOISING_Orientation_Noise/datasets/clean_euler_zip_unzip/clean_euler --noisy-dir MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter_misindexing/noise_scatter5 --results MAPS_DENOISING_Orientation_Noise/datasets/results_test_set_model/scatter5 MAPS_DENOISING_Orientation_Noise/datasets/results_test_set_mtex/scatter5 --shape 128 128 --jobs 8 --csv MAPS_DENOISING_Orientation_Noise/figures/scatter5/scores_mean.csv",
   "config": null,
   "args": {
-    "clean_dir": "MAPS_DENOISING_Orientation_Noise/datasets/clean_euler",
-    "noisy_dir": "MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter5",
-    "results": "MAPS_DENOISING_Orientation_Noise/datasets/mtex_out_scatter5/",
+    "clean_dir": "MAPS_DENOISING_Orientation_Noise/datasets/clean_euler_zip_unzip/clean_euler",
+    "noisy_dir": "MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter_misindexing/noise_scatter5",
+    "results": [
+      "MAPS_DENOISING_Orientation_Noise/datasets/results_test_set_model/scatter5",
+      "MAPS_DENOISING_Orientation_Noise/datasets/results_test_set_mtex/scatter5"
+    ],
     "shape": [
       128,
       128
     ],
     "limit": 0,
     "jobs": 8,
-    "all_maps": true,
+    "all_maps": false,
     "only": null,
     "exclude": null,
     "csv": "MAPS_DENOISING_Orientation_Noise/figures/scatter5/scores_mean.csv"

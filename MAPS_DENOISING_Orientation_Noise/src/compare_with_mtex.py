@@ -37,6 +37,7 @@ import numpy as np
 from scipy import stats
 
 from orientation import boundary_mask, disorientation_deg, euler_to_quat, load_euler
+from paths import MODEL_RESULTS, MTEX_RESULTS, clean_map, noise_dir
 
 ROOT = Path(__file__).resolve().parent.parent
 SHAPE = (128, 128)
@@ -69,26 +70,26 @@ def nanmean(values):
 def score_map(args):
     s, i, filters = args
     stem = f"map_{i:05d}_clean_euler_noisy"
-    qc = euler_to_quat(load_euler(ROOT / f"datasets/clean_euler/map_{i:05d}_clean_euler.txt"))
-    f_noisy = ROOT / f"datasets/noise_{s}/{stem}.txt"
+    qc = euler_to_quat(load_euler(clean_map(i)))
+    f_noisy = noise_dir(s) / f"{stem}.txt"
     mask = Path(str(f_noisy) + ".badmask.npy")
     bad = np.load(mask).ravel() if mask.exists() else np.zeros(len(qc), bool)
     bnd = boundary_mask(qc, SHAPE)
     out = {"input": measures(euler_to_quat(load_euler(f_noisy)), qc, bad, bnd)}
-    res = ROOT / f"datasets/mtex_out_{s}"
-    runs = [measures(euler_to_quat(load_euler(res / f"{stem}_noisy__{r}.txt")), qc, bad, bnd) for r in RUNS]
+    model, mtex = MODEL_RESULTS / s, MTEX_RESULTS / s
+    runs = [measures(euler_to_quat(load_euler(model / f"{stem}_noisy__{r}.txt")), qc, bad, bnd) for r in RUNS]
     out["ours"] = {k: float(np.mean([r[k] for r in runs])) for k in runs[0]}
     for f in filters:
-        out[f] = measures(euler_to_quat(load_euler(res / f"{stem}_noisy__{f}.txt")), qc, bad, bnd)
+        out[f] = measures(euler_to_quat(load_euler(mtex / f"{stem}_noisy__{f}.txt")), qc, bad, bnd)
     return s, i, out
 
 
 def maps_and_filters(s):
     """Maps with every run and every MTEX filter present for this set."""
-    res = ROOT / f"datasets/mtex_out_{s}"
-    if not res.exists():
+    model, mtex = MODEL_RESULTS / s, MTEX_RESULTS / s
+    if not mtex.exists():
         return [], []
-    have = lambda name: {int(m.group(1)) for p in res.glob(f"map_*__{name}.txt")
+    have = lambda name: {int(m.group(1)) for d in (model, mtex) for p in d.glob(f"map_*__{name}.txt")
                          if (m := re.match(r"map_(\d+)", p.name))}
     filters = [f for f in ALL_FILTERS if have(f)]
     if not filters:

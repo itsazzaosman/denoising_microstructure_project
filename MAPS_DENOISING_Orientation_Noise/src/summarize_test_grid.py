@@ -29,6 +29,7 @@ import numpy as np
 import yaml
 
 from orientation import boundary_mask, disorientation_deg, euler_to_quat, load_euler
+from paths import CLEAN_DIR, noise_dir
 
 ROOT = Path(__file__).resolve().parent.parent
 SHAPE = (128, 128)
@@ -56,9 +57,9 @@ def main():
     with ProcessPoolExecutor(max_workers=8) as pool:
         for name in names:
             cfg = yaml.safe_load((ROOT / f"configs/noise/{name}.yaml").read_text())["noise"]
-            noisy = sorted((ROOT / f"datasets/noise_{name}").glob("map_*_noisy.txt"))
+            noisy = sorted(noise_dir(name).glob("map_*_noisy.txt"))
             ids = [MAP_ID.search(f.name).group(1) for f in noisy]
-            jobs = [(ROOT / f"datasets/clean_euler/map_{i}_clean_euler.txt", f)
+            jobs = [(CLEAN_DIR / f"map_{i}_clean_euler.txt", f)
                     for i, f in zip(ids, noisy)]
             stats = np.array(list(pool.map(one_map, jobs, chunksize=8)))
             avg = stats.mean(axis=0)

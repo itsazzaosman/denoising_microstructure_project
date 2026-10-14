@@ -31,10 +31,9 @@ from pathlib import Path
 import numpy as np
 
 from orientation import load_euler
+from paths import CLEAN_DIR
 
 ROOT = Path(__file__).resolve().parent.parent
-CLEAN_DIR = ROOT / "datasets/clean_euler"
-NOISY_DIR = ROOT / "datasets/noisy_scatter5"
 CACHE_DIR = ROOT / "datasets/cache"
 
 SPLITS_DIR = ROOT / "configs/splits"

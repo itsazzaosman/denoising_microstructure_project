@@ -2,7 +2,7 @@
 """
 Look at one test map: truth, noisy input, denoised map, and the error of each.
 
-Reads the predictions eval_model.sh saved in datasets/mtex_out_<set>/, so no
+Reads the predictions eval_model.sh saved in datasets/results_test_set_model/<set>/, so no
 model is run. One row per test set; columns: clean map, noisy input, denoised
 map, error of the input, error of the denoised map. With --circle, every group
 of pixels still more than --threshold degrees wrong is circled on the
@@ -32,6 +32,7 @@ from scipy import ndimage
 
 from orientation import boundary_mask, disorientation_deg, euler_to_quat, load_euler
 from plot_maps import ipf_z_color
+from paths import MODEL_RESULTS, clean_map, noise_dir
 
 ROOT = Path(__file__).resolve().parent.parent
 SHAPE = (128, 128)
@@ -69,7 +70,7 @@ def main():
     args = p.parse_args()
 
     stem = f"map_{args.map:05d}_clean_euler_noisy"
-    clean = euler_to_quat(load_euler(ROOT / f"datasets/clean_euler/map_{args.map:05d}_clean_euler.txt"))
+    clean = euler_to_quat(load_euler(clean_map(args.map)))
     bnd = boundary_mask(clean, SHAPE)
     ipf = lambda q: ipf_z_color(q).reshape(*SHAPE, 3)
     norm = LogNorm(vmin=0.1, vmax=60)
@@ -80,9 +81,9 @@ def main():
     gs = fig.add_gridspec(nrow, 6, width_ratios=[1, 1, 1, 1, 1, 0.06], wspace=0.05, hspace=0.32,
                           left=0.01, right=0.94, top=1 - 0.55 / (3.15 * nrow + 0.5), bottom=0.02)
     for r, name in enumerate(args.sets):
-        f_noisy = ROOT / f"datasets/noise_{name}/{stem}.txt"
+        f_noisy = noise_dir(name) / f"{stem}.txt"
         noisy = euler_to_quat(load_euler(f_noisy))
-        den = euler_to_quat(load_euler(ROOT / f"datasets/mtex_out_{name}/{stem}_noisy__{args.run}.txt"))
+        den = euler_to_quat(load_euler(MODEL_RESULTS / name / f"{stem}_noisy__{args.run}.txt"))
         mask = Path(str(f_noisy) + ".badmask.npy")
         bad = np.load(mask).ravel() if mask.exists() else np.zeros(len(clean), bool)
         d_in, d_out = disorientation_deg(noisy, clean), disorientation_deg(den, clean)

@@ -63,7 +63,7 @@ else
     TRAIN_ARGS=(--epochs 40 --batch-size 16 --base-channels 32)
 fi
 CKPT_DIR="${CKPT_DIR:-$PROJECT_DIR/MAPS_DENOISING_Orientation_Noise/checkpoints_gpu}"
-# NOISE picks the test set scored at the end (datasets/noise_$NOISE). It must
+# NOISE picks the test set scored at the end (datasets/noise_scatter_misindexing/noise_$NOISE). It must
 # match the training noise passed to train.py, e.g.
 #     NOISE=scatter7 sbatch train_model.sh --noise-mode scatter --scatter-deg 7
 NOISE="${NOISE:-scatter5}"
@@ -79,13 +79,13 @@ echo "Training finished: $(date)"
 
 # Write the held-out predictions and score them against every MTEX filter.
 "$PYTHON" inference.py --method-name "${METHOD:-unet-gpu}" --checkpoint "$CKPT_DIR/best.pth" \
-    --clean-dir "$DATA/clean_euler" --noisy-dir "$DATA/noise_$NOISE"
+    --clean-dir "$DATA/clean_euler_zip_unzip/clean_euler" --noisy-dir "$DATA/noise_scatter_misindexing/noise_$NOISE"
 
 mkdir -p "$FIGURES"
 "$PYTHON" score_dataset.py \
-    --clean-dir "$DATA/clean_euler" \
-    --noisy-dir "$DATA/noise_$NOISE" \
-    --results   "$DATA/mtex_out_$NOISE/" \
+    --clean-dir "$DATA/clean_euler_zip_unzip/clean_euler" \
+    --noisy-dir "$DATA/noise_scatter_misindexing/noise_$NOISE" \
+    --results   "$DATA/results_test_set_model/$NOISE" "$DATA/results_test_set_mtex/$NOISE" \
     --shape 128 128 --jobs 8 --all-maps \
     --csv "$FIGURES/scores_mean.csv"
 

@@ -31,7 +31,7 @@
 % Each filter is applied grain by grain to the raw map, and again as
 % clean-<filter>: first delete the grains smaller than minPixel pixels (this
 % removes isolated misindexed pixels), then smooth and fill the deleted pixels
-% from their neighbours. 12 outputs per map.
+% from their neighbours (up to the map edge). 12 outputs per map.
 %
 % GRAINS are detected with the threshold angle max(10, factor * theta_max)
 % degrees. Two pixels of one grain can differ by up to 2 * theta_max, and a
@@ -112,7 +112,7 @@ for s = 1:numel(setsToRun)
         small = grains(grains.numPixel < minPixel);
         ebsdC = ebsd(~ismember(ebsd.grainId, small.id));
         [~, ebsdC] = withGrains(ebsdC, thr);
-        ebsdS = smooth(ebsdC, F, 'fill');
+        ebsdS = smooth(ebsdC, F, 'fill', 'extrapolate');   % extrapolate: also fill deleted pixels on the map edge
       else
         ebsdS = smooth(ebsd, F);
       end

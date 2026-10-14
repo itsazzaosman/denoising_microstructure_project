@@ -54,8 +54,8 @@ else
 fi
 CKPT_DIR="${CKPT_DIR:-$PROJECT_DIR/MAPS_DENOISING_Orientation_Noise/checkpoints}"
 # METHOD names the output files, so parallel variants (different
-# --mean-radius, say) can all land in mtex_out_$NOISE/ and be compared in one table.
-# NOISE picks the test set scored at the end (datasets/noise_$NOISE). It must
+# --mean-radius, say) can all land in results_test_set_model/$NOISE/ and be compared in one table.
+# NOISE picks the test set scored at the end (datasets/noise_scatter_misindexing/noise_$NOISE). It must
 # match the training noise passed to train.py, e.g.
 #     NOISE=scatter7 sbatch train_model_cpu.sh --noise-mode scatter --scatter-deg 7
 NOISE="${NOISE:-scatter5}"
@@ -71,13 +71,13 @@ cd "$SCRIPT_DIR"
 echo "Training finished: $(date)"
 
 "$PYTHON" inference.py --method-name "${METHOD:-unet}" --checkpoint "$CKPT_DIR/best.pth" \
-    --clean-dir "$DATA/clean_euler" --noisy-dir "$DATA/noise_$NOISE"
+    --clean-dir "$DATA/clean_euler_zip_unzip/clean_euler" --noisy-dir "$DATA/noise_scatter_misindexing/noise_$NOISE"
 
 mkdir -p "$FIGURES"
 "$PYTHON" score_dataset.py \
-    --clean-dir "$DATA/clean_euler" \
-    --noisy-dir "$DATA/noise_$NOISE" \
-    --results   "$DATA/mtex_out_$NOISE/" \
+    --clean-dir "$DATA/clean_euler_zip_unzip/clean_euler" \
+    --noisy-dir "$DATA/noise_scatter_misindexing/noise_$NOISE" \
+    --results   "$DATA/results_test_set_model/$NOISE" "$DATA/results_test_set_mtex/$NOISE" \
     --shape 128 128 --jobs 8 --all-maps \
     --csv "$FIGURES/scores_mean.csv"
 

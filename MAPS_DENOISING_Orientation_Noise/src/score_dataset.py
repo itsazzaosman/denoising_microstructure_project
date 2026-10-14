@@ -28,8 +28,8 @@ Usage
 -----
     python score_dataset.py \
         --clean-dir datasets/clean_euler \
-        --noisy-dir datasets/noisy_mis05 \
-        --results   mtex_out/ \
+        --noisy-dir datasets/noise_scatter5 \
+        --results   datasets/results_test_set_model/scatter5 datasets/results_test_set_mtex/scatter5 \
         --shape 128 128
 
     # a subset, and a machine-readable dump
@@ -59,7 +59,7 @@ def map_id(path):
     return int(m.group(1)) if m else None
 
 
-def index_dataset(clean_dir, noisy_dir, results_dir):
+def index_dataset(clean_dir, noisy_dir, results_dirs):
     """
     Pair up clean / noisy / mask / per-method result files by map id.
 
@@ -70,7 +70,7 @@ def index_dataset(clean_dir, noisy_dir, results_dir):
     clean = {map_id(f): f for f in Path(clean_dir).glob("map_*.txt") if map_id(f)}
 
     results = defaultdict(dict)
-    for f in Path(results_dir).glob("*__*.txt"):
+    for f in (f for d in results_dirs for f in Path(d).glob("*__*.txt")):
         mid = map_id(f)
         if mid is not None:
             results[mid][f.stem.split("__")[-1]] = f
@@ -161,8 +161,11 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--clean-dir", required=True)
     p.add_argument("--noisy-dir", required=True)
-    p.add_argument("--results", required=True,
-                   help="folder of denoised .txt files named <stem>__<method>.txt")
+    p.add_argument("--results", nargs="+", required=True,
+                   help="one or more folders of denoised .txt files named "
+                        "<stem>__<method>.txt, e.g. datasets/results_test_set_model/<set> "
+                        "and datasets/results_test_set_mtex/<set>; a folder that does "
+                        "not exist is skipped")
     p.add_argument("--shape", nargs=2, type=int, required=True, metavar=("NY", "NX"))
     p.add_argument("--limit", type=int, default=0, help="score only the first N maps")
     p.add_argument("--jobs", type=int, default=8, help="parallel worker processes")
@@ -189,7 +192,7 @@ def main():
 
     all_methods = sorted({m for j in jobs for m in j["results"]})
     if not all_methods:
-        sys.exit(f"no *__*.txt result files in {args.results}")
+        sys.exit(f"no *__*.txt result files in {' '.join(args.results)}")
 
     if not args.all_maps:
         complete = [j for j in jobs if len(j["results"]) == len(all_methods)]
