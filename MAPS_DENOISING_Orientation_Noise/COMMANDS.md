@@ -134,6 +134,13 @@ make score-all NOISE=scatter5_mis6
 MTEX runs on the Windows computer, on a small package of test maps: the same
 maps the network was scored on, so the two can be compared map by map.
 
+**4.0 Run MATLAB SCRIPT** 
+```bash
+cd 'C:\Users\STUDENT\OneDrive\Documenten\MATLAB\mtex-7.1.0\mtex_package'
+which run_mtex_baseline -all
+run_mtex_baseline
+```
+
 **4.1 Build the package** *(done)*: maps 1-10 of all 29 test sets, the MATLAB
 script and a README, zipped (`$P/datasets/mtex_package.zip`, 71 MB):
 ```bash
@@ -142,7 +149,8 @@ python3 $P/src/make_mtex_package.py
 
 **4.2 On Windows**: download the zip (in VS Code: right-click it > Download),
 unzip, start MATLAB + `startup_mtex`, open `mtex_package/run_mtex_baseline.m`
-and press Run. It runs spline, median, clean-spline and clean-median on map 1
+and press Run. It runs the six filters (mean, median, Kuwahara, spline, half-quadratic,
+infimal convolution), each with and without pre-cleaning, on map 1
 of every set; set `maps = 1:10` at the top for all ten. Finished outputs are
 skipped, so it can be stopped and started again.
 

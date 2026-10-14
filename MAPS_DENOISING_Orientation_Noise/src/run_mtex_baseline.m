@@ -1,7 +1,8 @@
 % =========================================================================
 % run_mtex_baseline.m  (rewritten 2026-10-14)
 %
-% Runs four MTEX denoising filters on the test maps in the MTEX package
+% Runs the six MTEX denoising filters, each with and without pre-cleaning,
+% on the test maps in the MTEX package
 % folder (datasets/mtex_package, made by src/make_mtex_package.py), on a
 % Windows or Linux MATLAB with MTEX 7.1.
 %
@@ -20,12 +21,17 @@
 %         mtex_out/<set>/mtex_log.csv: threshold, seconds and unfilled
 %         pixels for every output.
 %
-% FILTERS
-%   spline, median              applied grain by grain to the raw map
-%   clean-spline, clean-median  first delete the grains smaller than minPixel
-%                               pixels (this removes isolated misindexed
-%                               pixels), then smooth and fill the deleted
-%                               pixels from their neighbours
+% FILTERS (settings as in the September 2026 runs)
+%   mean          default window (1 ring of neighbours)
+%   median        numNeighbours = 2
+%   kuwahara      numNeighbours = 2
+%   spline        smoothing strength chosen automatically
+%   halfquad      half-quadratic, alpha = 0.25
+%   infconv       infimal convolution, default parameters
+% Each filter is applied grain by grain to the raw map, and again as
+% clean-<filter>: first delete the grains smaller than minPixel pixels (this
+% removes isolated misindexed pixels), then smooth and fill the deleted pixels
+% from their neighbours. 12 outputs per map.
 %
 % GRAINS are detected with the threshold angle max(10, factor * theta_max)
 % degrees. Two pixels of one grain can differ by up to 2 * theta_max, and a
@@ -40,10 +46,12 @@ clear; close all;
 
 % ----------------------------- SETTINGS ---------------------------------
 maps     = 1;          % which test maps: 1 = first map only, 1:10 = all ten in the package
-filters  = {'spline', 'median', 'clean-spline', 'clean-median'};
+base     = {'mean', 'median', 'kuwahara', 'spline', 'halfquad', 'infconv'};
+filters  = [base, strcat('clean-', base)];   % or a subset, e.g. {'spline', 'clean-spline'}
 factor   = 2;          % grain threshold = max(10, factor * theta_max) degrees
 minPixel = 3;          % clean-*: delete grains smaller than this many pixels
-medianNeighbours = 2;  % median filter window: (2*2+1) x (2*2+1) pixels
+numNeighbours = 2;     % median and Kuwahara window: (2*2+1) x (2*2+1) pixels
+hqAlpha  = 0.25;       % half-quadratic regularisation
 setsToRun = {};        % empty = every set in sets.txt; or e.g. {'scatter5', 'scatter5_mis6'}
 NY = 128; NX = 128; step = 1.0;
 % ------------------------------------------------------------------------
@@ -99,7 +107,7 @@ for s = 1:numel(setsToRun)
     for f = 1:numel(todo)
       t0 = tic;
       name = todo{f};
-      F = makeFilter(erase(name, 'clean-'), medianNeighbours);
+      F = makeFilter(erase(name, 'clean-'), numNeighbours, hqAlpha);
       if startsWith(name, 'clean-')
         small = grains(grains.numPixel < minPixel);
         ebsdC = ebsd(~ismember(ebsd.grainId, small.id));
@@ -136,13 +144,23 @@ end
 end
 
 
-function F = makeFilter(name, medianNeighbours)
+function F = makeFilter(name, numNeighbours, hqAlpha)
 switch name
-  case 'spline'
-    F = splineFilter;                 % smoothing strength chosen automatically
+  case 'mean'
+    F = meanFilter;
   case 'median'
     F = medianFilter;
-    F.numNeighbours = medianNeighbours;
+    F.numNeighbours = numNeighbours;
+  case 'kuwahara'
+    F = KuwaharaFilter;
+    F.numNeighbours = numNeighbours;
+  case 'spline'
+    F = splineFilter;                 % smoothing strength chosen automatically
+  case 'halfquad'
+    F = halfQuadraticFilter;
+    F.alpha = hqAlpha;
+  case 'infconv'
+    F = infimalConvolutionFilter;
   otherwise
     error('unknown filter %s', name);
 end

@@ -1,0 +1,29 @@
+% Abstract (draft, 2026-10-14). Every number is from results.tex.
+% UPDATE the last-but-one sentence once MTEX has been run on all 28 test
+% conditions (src/compare_with_mtex.py): so far the filters were compared on
+% 10 scatter-only maps per level.
+Electron backscatter diffraction (EBSD) orientation maps contain two kinds of
+error: a small scatter of every measured orientation, and misindexed pixels
+whose orientation is completely wrong. The filters commonly used to clean these
+maps work grain by grain, so the grains must first be detected with a
+threshold angle, and most of the filters have parameters that must be matched
+to the noise level of the map. Isolated misindexed pixels are not repaired by
+the filters themselves and have to be removed in a separate cleaning step. We
+train a convolutional neural network that cleans an orientation map without
+grain detection and without being told its noise level. For every pixel the
+network decides how much each of its neighbours should count, after aligning
+the neighbours across the 24 symmetry-equivalent forms of a cubic orientation,
+and a separate output detects and rebuilds misindexed pixels. The network was
+trained on about 39{,}000 synthetic DREAM.3D maps with randomly drawn noise
+levels and tested on 500 other maps under 28 noise conditions, with maximum
+scatter angles from $1^\circ$ to $15^\circ$ and 0 to 9\% misindexed pixels. In
+every condition it removed 86--93\% of the mean per-pixel error. On test maps
+with mixed noise levels the error fell from $5.69^\circ$ to $0.59^\circ$, and
+94\% of the misindexed pixels ended within $5^\circ$ of their true orientation.
+The standard deviation across three independent training runs was at most
+$0.03^\circ$. In a first comparison on scatter-only maps, the network had a
+lower mean error than the mean, median, Kuwahara, half-quadratic and
+infimal-convolution filters of MTEX, and a lower but not significantly
+different error than its spline filter. Because the method needs only the
+orientation map, it can be applied to existing EBSD data, without the stored
+diffraction patterns that pattern-based denoising requires.

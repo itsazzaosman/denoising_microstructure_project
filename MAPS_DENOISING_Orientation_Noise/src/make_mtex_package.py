@@ -34,10 +34,12 @@ MTEX package: test maps for the MTEX baseline
 1. Copy this whole folder to the computer with MATLAB + MTEX 7.1.
 2. Start MATLAB, run startup_mtex.
 3. Open run_mtex_baseline.m from THIS folder and press Run.
-   It runs spline, median, clean-spline and clean-median on map 1 of every
-   set in sets.txt. For more maps, change `maps = 1` to `maps = 1:10` at the
-   top (this folder holds maps 1-10). Finished outputs are skipped, so you
-   can stop and start again.
+   It runs the six MTEX filters (mean, median, Kuwahara, spline,
+   half-quadratic, infimal convolution), each with and without pre-cleaning
+   (12 outputs per map), on map 1 of every set in sets.txt. For more maps,
+   change `maps = 1` to `maps = 1:10` at the top (this folder holds maps
+   1-10). Finished outputs are skipped, so you can stop and start again.
+   To try one set first: setsToRun = {{'scatter5'}};
 4. Copy the folder mtex_out back to the cluster, to
    /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/mtex_package/mtex_out
    and run (from /project/community/aiosman):

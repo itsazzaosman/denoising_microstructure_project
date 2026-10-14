@@ -10,11 +10,11 @@ function run_mtex_grid(setName, varargin)
 %         (Euler angles, DREAM.3D pixel order, the format score_dataset.py reads)
 %         datasets/mtex_out_<set>/mtex_log.csv  (time and unfilled pixels per output)
 %
-% Filters (default all four):
-%   spline, median              the filter applied grain by grain to the raw map
-%   clean-spline, clean-median  first delete grains smaller than minPixel (this
-%                               removes isolated misindexed pixels), then smooth
-%                               and fill the deleted pixels ('fill')
+% Filters (default all twelve): mean, median, kuwahara, spline, halfquad,
+% infconv applied grain by grain to the raw map, and clean-<filter>: first
+% delete grains smaller than minPixel (this removes isolated misindexed
+% pixels), then smooth and fill the deleted pixels ('fill'). Settings as in
+% run_mtex_baseline.m.
 %
 % Grains are detected with a threshold angle of max(10, factor * theta_max)
 % degrees: two pixels of one grain can differ by up to 2 * theta_max, and a
@@ -29,10 +29,12 @@ function run_mtex_grid(setName, varargin)
 
 p = inputParser;
 p.addParameter('maps', 1:500);
-p.addParameter('filters', {'spline', 'median', 'clean-spline', 'clean-median'});
+base = {'mean', 'median', 'kuwahara', 'spline', 'halfquad', 'infconv'};
+p.addParameter('filters', [base, strcat('clean-', base)]);
 p.addParameter('factor', 2);         % threshold = max(10, factor * theta_max)
 p.addParameter('minPixel', 3);       % clean-*: delete grains smaller than this
-p.addParameter('medianNeighbours', 2);
+p.addParameter('numNeighbours', 2);   % median and Kuwahara
+p.addParameter('hqAlpha', 0.25);       % half-quadratic
 p.parse(varargin{:});
 opt = p.Results;
 
@@ -111,11 +113,21 @@ end
 
 function F = makeFilter(name, opt)
 switch name
-  case 'spline'
-    F = splineFilter;                 % smoothing strength chosen automatically
+  case 'mean'
+    F = meanFilter;
   case 'median'
     F = medianFilter;
-    F.numNeighbours = opt.medianNeighbours;
+    F.numNeighbours = opt.numNeighbours;
+  case 'kuwahara'
+    F = KuwaharaFilter;
+    F.numNeighbours = opt.numNeighbours;
+  case 'spline'
+    F = splineFilter;                 % smoothing strength chosen automatically
+  case 'halfquad'
+    F = halfQuadraticFilter;
+    F.alpha = opt.hqAlpha;
+  case 'infconv'
+    F = infimalConvolutionFilter;
   otherwise
     error('unknown filter %s', name);
 end
