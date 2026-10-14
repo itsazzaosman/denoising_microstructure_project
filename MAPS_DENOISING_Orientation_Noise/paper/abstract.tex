@@ -2,6 +2,10 @@
 % UPDATE the last-but-one sentence once MTEX has been run on all 28 test
 % conditions (src/compare_with_mtex.py): so far the filters were compared on
 % 10 scatter-only maps per level.
+% Speed: network = 500 maps in 21-23 s on one H100 (blind_learned seeds 1-3,
+% logs/*.out, includes file reading, scoring and writing); MTEX = mean of
+% mtex_log.csv of the first Windows run (clean-kuwahara 0.59 s to
+% clean-infconv 11.65 s per map). UPDATE from the final run's logs.
 Electron backscatter diffraction (EBSD) orientation maps contain two kinds of
 error: a small scatter of every measured orientation, and misindexed pixels
 whose orientation is completely wrong. The filters commonly used to clean these
@@ -24,6 +28,8 @@ The standard deviation across three independent training runs was at most
 $0.03^\circ$. In a first comparison on scatter-only maps, the network had a
 lower mean error than the mean, median, Kuwahara, half-quadratic and
 infimal-convolution filters of MTEX, and a lower but not significantly
-different error than its spline filter. Because the method needs only the
+different error than its spline filter. The network cleans a map in about
+0.04~s on one GPU, including reading and writing the files, against 0.6 to
+12~s per map for each MTEX filter on a desktop processor. Because the method needs only the
 orientation map, it can be applied to existing EBSD data, without the stored
 diffraction patterns that pattern-based denoising requires.

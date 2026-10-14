@@ -261,6 +261,22 @@ one thing the model never saw.
 - [ ] **Different microstructure (NICE):** a few DREAM.3D maps with smaller
   grains (more boundaries), like Martinez's unseen heat treatment.
 - [ ] **Cross-level matrix:** evaluate every model at every noise level.
+- [ ] **Noise outside the training range** (added 2026-10-14). A reviewer
+  will ask what happens when the noise is stronger than anything the model
+  was trained on (scatter 0–15°, misindexing 0–10%). Test the existing
+  model; no retraining is needed.
+  - Test sets just outside the range: `scatter18`, `scatter20` (more
+    scatter), `scatter5_mis15`, `scatter5_mis20` (more misindexing) and
+    `scatter20_mis15` (both).
+  - Each set needs one config, a copy of `configs/noise/scatter15_mis9.yaml`
+    with new `scatter` / `misindex` values (keep `seed: 0`), then
+    `make noise NOISE=<set>`.
+  - Evaluate on the GPU, one job per seed (`eval_model.sh` takes one RUN):
+    `RUN=blind_learned_seed1 SETS="scatter18 scatter20 scatter5_mis15 scatter5_mis20 scatter20_mis15" sbatch src/eval_model.sh`,
+    then the same for seed2 and seed3. About 22 s per set per seed.
+  - Write one honest sentence in the Discussion, either "the error grows
+    gradually beyond the training range" or "it breaks down above X". Both
+    are acceptable to a reviewer; saying nothing is not.
 
 ### Step 8 — Real-data validation (MUST for a strong paper)
 

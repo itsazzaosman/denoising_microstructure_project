@@ -23,7 +23,8 @@ number of grains per map is the same across the three ranges.
 
 \subsection{Noise model}
 
-Each noisy map combines two kinds of error. The first is orientation scatter:
+We model two kinds of error, each with its own level, so that a noisy map
+can contain one of them or both. The first is orientation scatter:
 every pixel is rotated by a small rotation about an axis drawn uniformly on the
 sphere, with a rotation angle drawn uniformly between $0$ and $\theta_{\max}$.
 The disorientation between a
@@ -31,16 +32,21 @@ scattered pixel and its true orientation therefore has a mean of
 $\theta_{\max}/2$. The second is misindexing: a fraction $p$ of the pixels is
 replaced by orientations drawn uniformly from SO(3)~\cite{shoemake1992uniform},
 so that these pixels carry no information about their true orientation.
-Because misindexing in real scans occurs mostly where the diffraction pattern
-mixes two grains, a boundary pixel is chosen four times as often as an interior
-pixel, sampled without replacement. Scatter is applied first and misindexing
+In real scans, misindexing happens mostly at grain boundaries: there the
+electron beam covers two grains at once, the recorded diffraction pattern is a
+mixture of two patterns, and the indexing software may return an orientation
+that belongs to neither grain. To reproduce this, a boundary pixel is chosen
+four times as often as an interior pixel. No pixel is chosen twice, so exactly
+a fraction $p$ of the pixels is replaced. Scatter is applied first and misindexing
 second. All errors are measured as the disorientation angle, the smallest
 rotation between two orientations once the 24 proper rotations of the cubic
 group are taken into account.
 
 The network is trained on noise that is drawn afresh every time a training map
 is used. For each draw, $\theta_{\max}$ is sampled uniformly from
-$[0^\circ, 15^\circ]$ and $p$ from $[0, 10\%]$, so the network never sees the
+$[0^\circ, 15^\circ]$ and $p$ from $[0, 10\%]$. These are continuous ranges,
+not the fixed levels of the test sets (Section~\ref{sec:test_conditions}),
+and they contain every test level. The network therefore never sees the
 same corruption twice and is never told the noise level of its input. We also
 apply a random rotation of the specimen frame to all orientations of the map,
 which leaves every misorientation between pixels unchanged, together with
@@ -50,6 +56,7 @@ fixed random seed, so that every epoch and every training run is compared on
 identical inputs. The validation set is used only to select the checkpoint.
 
 \subsection{Test conditions}
+\label{sec:test_conditions}
 
 The test maps were corrupted under 28 fixed conditions: every combination of
 $\theta_{\max} \in \{1, 3, 5, 7, 9, 12, 15\}^\circ$ and
