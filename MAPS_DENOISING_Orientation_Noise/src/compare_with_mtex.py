@@ -105,6 +105,56 @@ def level(s):
     return (int(m.group(1)), int(m.group(2) or 0)) if m else (None, None)
 
 
+def paper_figure(summary, per_set, grid, bases, path):
+    """Error vs scatter, one panel per misindexing level, sized for a journal page.
+    Points: mean over the maps of the set; bars: standard deviation across them."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
+    plt.rcParams.update({"font.size": 8, "text.color": INK, "axes.labelcolor": INK2,
+                         "xtick.color": INK2, "ytick.color": INK2, "axes.edgecolor": MUTED})
+
+    def mean_sd(s, m):
+        v = np.array([x["all"] for x in per_set[s][m]])
+        return v.mean(), v.std(ddof=1)
+
+    fig, axes = plt.subplots(2, 2, figsize=(7.0, 5.4), sharex=True, sharey=True)
+    for ax, mis, letter in zip(axes.flat, (0, 3, 6, 9), "abcd"):
+        sub = sorted((level(s)[0], s) for s in grid if level(s)[1] == mis)
+        x = np.array([t for t, _ in sub], dtype=float)
+        ax.plot(x, [summary[s]["input"]["all"] for _, s in sub], color=MUTED, ls="--", lw=1.0,
+                label="noisy input")
+        lines = [(PRETTY[b], COLOURS[b], lambda s, b=b: summary[s]["best"][b], 1.0, 2.5) for b in bases]
+        lines.append(("ours (3 runs)", COLOURS["ours"], lambda s: "ours", 2.0, 4.0))
+        for label, colour, method, lw, ms in lines:
+            ms_ = np.array([mean_sd(s, method(s)) for _, s in sub])
+            mu, sd = ms_[:, 0], ms_[:, 1]
+            low = np.minimum(sd, 0.9 * mu)          # keep the bar above zero on the log axis
+            ax.errorbar(x, mu, yerr=[low, sd], color=colour, lw=lw, marker="o", ms=ms,
+                        elinewidth=0.8, capsize=1.5, label=label)
+        ax.set_yscale("log")
+        ax.yaxis.set_major_locator(LogLocator(subs=(1, 2, 5)))
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+        ax.yaxis.set_minor_formatter(NullFormatter())
+        ax.set_xticks([1, 3, 5, 7, 9, 12, 15])
+        ax.set_title(f"({letter}) misindexed pixels $p$ = {mis}%", loc="left", fontsize=8)
+        ax.grid(color=GRID, lw=0.6)
+        ax.set_axisbelow(True)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+    for ax in axes[1]:
+        ax.set_xlabel(r"maximum scatter angle $\theta_{\max}$ (deg)")
+    for ax in axes[:, 0]:
+        ax.set_ylabel("mean per-pixel error ALL (deg)")
+    axes[0, 0].legend(frameon=False, fontsize=6.5, ncol=2)
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path.with_suffix(".pdf"))
+    fig.savefig(path.with_suffix(".png"), dpi=300)
+    plt.close(fig)
+
+
 def holm(pvalues):
     """Holm's step-down correction; NaN p-values are left out and stay NaN."""
     p = np.asarray(pvalues, dtype=float)
@@ -120,8 +170,9 @@ def holm(pvalues):
 
 def per_set_tests(summary, per_set, out):
     """Within each set: paired t-test over its maps, ours vs the best MTEX filter of
-    that set (chosen on ALL, then used for every measure). Holm's correction over
-    the sets, separately for each measure. Writes per_set_tests.csv."""
+    that set (chosen on ALL, then used for every measure), with the 95% confidence
+    interval of the mean difference (t distribution, as the test). Holm's correction
+    over the sets, separately for each measure. Writes per_set_tests.csv."""
     rows = []
     for s, row in summary.items():
         best = min(row["best"].values(), key=lambda f: row[f]["all"])
@@ -133,8 +184,11 @@ def per_set_tests(summary, per_set, out):
                 continue                        # CORRUPTED: the set has no misindexing
             a, b = a[ok], b[ok]
             pv = stats.ttest_rel(a, b).pvalue if np.any(a != b) else np.nan
+            d = a - b
+            half = stats.t.ppf(0.975, len(d) - 1) * d.std(ddof=1) / np.sqrt(len(d))
             rows.append({"set": s, "measure": k, "best_mtex": best, "maps": int(ok.sum()),
-                         "ours": a.mean(), "mtex": b.mean(), "difference": (a - b).mean(),
+                         "ours": a.mean(), "mtex": b.mean(), "difference": d.mean(),
+                         "ci_low": d.mean() - half, "ci_high": d.mean() + half,
                          "ours_lower_maps": int((a < b).sum()), "p": pv})
     for k in KEYS:
         sel = [r for r in rows if r["measure"] == k]
@@ -301,7 +355,9 @@ def main():
     fig.tight_layout()
     fig.savefig(out / "mtex_comparison.png", dpi=150)
     fig.savefig(out / "mtex_comparison.pdf")
-    print(f"\nwrote {out}/per_map.csv, summary.csv, per_set_tests.csv, mtex_comparison.png/.pdf")
+    paper_figure(summary, per_set, grid, bases, ROOT / "figures/paper/mtex_comparison")
+    print(f"\nwrote {out}/per_map.csv, summary.csv, per_set_tests.csv, mtex_comparison.png/.pdf"
+          f"\n      {ROOT}/figures/paper/mtex_comparison.pdf/.png")
 
 
 if __name__ == "__main__":

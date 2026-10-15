@@ -1,0 +1,52 @@
+% Hypothesis test and its outcome, network vs the closest MTEX filter (maps 1-10).
+% Numbers from figures/slides/closest_competitor_tests.csv (src/make_slide_tables.py).
+\documentclass[11pt]{article}
+\usepackage[landscape,margin=1.5cm]{geometry}
+\usepackage{amsmath,booktabs,array,caption}
+\pagestyle{empty}
+\renewcommand{\arraystretch}{1.4}
+\captionsetup{labelformat=empty,font={bf,large},skip=8pt}
+
+\begin{document}
+
+\begin{table}[h]
+\centering
+\caption{Statistical test: our network against the best MTEX filter}
+\begin{tabular}{>{\bfseries}l p{16cm}}
+\toprule
+Compared & Our network vs.\ the MTEX filter with the lowest error on that measure and test set \\
+Per map  & $d_m = e_m^{\text{ours}} - e_m^{\text{MTEX}}$, \quad $m = 1, \dots, 10$ \quad (same maps, same noise) \\
+$\boldsymbol{H_0}$ & $\mu_d = 0$: our network and the best MTEX filter have the same mean error \\
+$\boldsymbol{H_1}$ & $\mu_d \neq 0$: the mean errors differ (two-sided) \\
+Test     & Paired $t$-test, $n = 10$ maps, 9 degrees of freedom, Holm correction over the test sets \\
+Decision & Reject $H_0$ if $p < 0.05$; ours is better if $\bar{d} < 0$, worse if $\bar{d} > 0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{1cm}
+
+\begin{table}[h]
+\centering
+\caption{When is our network significantly better?}
+\begin{tabular}{>{\bfseries}l c p{10.2cm} p{5.2cm}}
+\toprule
+Measure & \textbf{Significantly better} & \textbf{No significant difference ($H_0$ not rejected)} & \textbf{Significantly worse} \\
+\midrule
+ALL           & 28 of 29 sets & $3^\circ$, no misindexing (spline; $p = 0.43$) & none \\
+BOUNDARY      & 26 of 29 sets & $1^\circ$, $3^\circ$, $5^\circ$, no misindexing (spline; $p = 1.00$, $1.00$, $0.63$) & none \\
+CORRUPTED     & 22 of 22 sets & none & none \\
+${>}10^\circ$ & 23 of 29 sets & $1^\circ$, $3^\circ$, $5^\circ$, no misindexing (mean; $p = 0.24$ each); \newline
+                                $7^\circ$, no misindexing (half-quadratic; $p = 0.07$); \newline
+                                mixed set (median; $p = 0.07$)
+                              & $9^\circ$, no misindexing (half-quadratic): $+0.6$ pixels per map, $p = 0.007$ \\
+\bottomrule
+\end{tabular}
+
+\vspace{6pt}
+{\small Test set = maximum scatter angle $\theta_{\max}$ and fraction of misindexed pixels; maps 1--10 of each.
+In parentheses: the closest MTEX filter and the Holm-corrected $p$-value.
+CORRUPTED has 22 sets, the ones with misindexed pixels.}
+\end{table}
+
+\end{document}

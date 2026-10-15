@@ -2,9 +2,8 @@
 % Methods: the MTEX filters we compare against. Settings are those of
 % src/run_mtex_baseline.m; what each filter does was checked against the
 % MTEX 7.1.0 source on 2026-10-14.
-% Items in [square brackets] are for you to fill in. The timings are from the
-% mtex_log.csv files of the first Windows run (map 1 of every set); update them
-% from the logs of the final run.
+% Items in [square brackets] are for you to fill in. The timings are the means
+% of the mtex_log.csv files of the final Windows run (2026-10-14, 290 maps).
 % ---------------------------------------------------------------------------
 
 \subsection{Baseline filters}
@@ -81,7 +80,7 @@ The filtered maps were written back on the original $128 \times 128$ grid and
 scored in the same way as the output of our network (Eq.~\ref{eq:error}). The
 filters were run on test maps 1--10 of each of the 28 test conditions and of
 the mixed set, 290 maps in total. On [processor], the six filters together
-took about 22~s per map, of which 12~s for the infimal-convolution filter,
+took about 24~s per map, of which 16~s for the infimal-convolution filter,
 against about 0.04~s per map for our network on one NVIDIA H100 GPU,
 including reading and writing the files (500 maps in 21--23~s). The filter parameters were not tuned:
 they are the MTEX defaults, except for the window of the median and Kuwahara

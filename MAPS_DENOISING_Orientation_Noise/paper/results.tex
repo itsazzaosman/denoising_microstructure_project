@@ -197,44 +197,88 @@ BOUNDARY error is always higher than the ALL error
   \label{fig:examples}
 \end{figure*}
 
-\subsection{Comparison with MTEX filters (preliminary)}
+\subsection{Comparison with MTEX filters}
+\label{sec:mtex_results}
 
-So far the MTEX filters~\cite{hielscher2019denoising} have been run on only the
-first 10 test maps of two scatter-only conditions, $\theta_{\max} = 5^\circ$
-and $7^\circ$, with their default parameters. Table~\ref{tab:mtex} compares
-them with our method on these maps. Our method has a lower mean error than the
-mean, median, Kuwahara, half-quadratic and infimal-convolution filters on all
-10 maps at both levels, and the paired $t$-tests give $p < 0.001$. The spline
-filter is the closest: its mean error is $0.403^\circ$ against our
-$0.300^\circ$ at $\theta_{\max} = 5^\circ$, and $0.601^\circ$ against
-$0.416^\circ$ at $\theta_{\max} = 7^\circ$. However, the spline error changes
-a lot from map to map (standard deviation $0.23^\circ$ and $0.30^\circ$,
-against $0.009^\circ$ and $0.012^\circ$ for ours). Our method is lower on 6 and
-7 of the 10 maps, and with only 10 maps the difference is not statistically
-significant ($p = 0.17$ and $p = 0.08$). A full comparison on all 500 test
-maps, with filter parameters tuned for each noise level and with misindexed
-pixels, is in progress.
+% Numbers from figures/mtex_comparison/ (src/compare_with_mtex.py, 2026-10-14);
+% tables made by src/make_mtex_tables.py, example maps by src/plot_mtex_examples.py.
+The six MTEX filters (Section~\ref{sec:baselines}) were run on test maps 1--10
+of every test set, 290 maps in total, and our network was scored on the same
+maps, so all methods were given identical noisy pixels. For each set we
+compare the network with the best filter of that set, the one with the lowest
+ALL error. This filter is chosen after scoring, which favours MTEX.
 
-\begin{table}[t]
+Figure~\ref{fig:mtex} shows the ALL error of every method in the 28 conditions
+of the test grid. The network has the lowest error in all of them and in the
+mixed set. The median and spline filters are the strongest MTEX filters and
+are the best filter of every set; the mean, Kuwahara, half-quadratic and
+infimal-convolution filters are well behind. The gap widens with the scatter:
+the best filter's error is 1.2 times ours at $\theta_{\max} = 1^\circ$ without
+misindexing ($0.081^\circ$ against $0.068^\circ$) and 3.8 times at
+$\theta_{\max} = 15^\circ$ ($3.49^\circ$ against $0.92^\circ$). At
+$\theta_{\max} = 15^\circ$ the mean filter even leaves the map worse than the
+input, at every misindexing level ($9.80^\circ$ against $7.51^\circ$ without
+misindexing).
+
+Within each set we tested the difference with the paired $t$-test over the
+10 maps, Holm-corrected over the 29 sets (Table~\ref{tab:mtex}; every set is
+in Appendix~\ref{app:mtex}). The network is significantly better than the best
+filter in 28 of the 29 sets for ALL and for BOUNDARY, in all 22 sets with
+misindexing for CORRUPTED, and in 25 sets for the percentage of pixels beyond
+$10^\circ$. It is significantly worse in none. The one set without a
+significant difference in ALL and BOUNDARY is $\theta_{\max} = 3^\circ$ without
+misindexing, where the spline filter reaches $0.222^\circ$ against our
+$0.185^\circ$ ($p = 0.43$). Its error varies strongly from map to map
+(standard deviation $0.142^\circ$, against $0.005^\circ$ for ours), and it is
+lower than ours on 5 of the 10 maps. Beyond $10^\circ$, the four sets without
+a significant difference are $\theta_{\max} = 1^\circ$, $3^\circ$ and
+$5^\circ$ without misindexing, where both methods leave almost no pixel above
+$10^\circ$ (at most 0.2 pixels per map on average), and the mixed set
+($0.27\%$ against $1.94\%$, $p = 0.053$).
+
+The largest difference is in the repair of misindexed pixels. After the best
+filter, a misindexed pixel is still $5.6^\circ$ to $8.0^\circ$ from its true
+orientation on average, depending on the condition, and after the network
+$2.0^\circ$ to $3.1^\circ$. The filters fill a deleted pixel from its nearest
+neighbour and then smooth it, whereas the network rebuilds it from its whole
+neighbourhood. Figure~\ref{fig:mtex_examples} shows where the remaining errors
+lie. After the median filter they follow the grain boundaries
+(Fig.~\ref{fig:mtex_examples}g), and at $\theta_{\max} = 15^\circ$ whole grains
+are left more than $10^\circ$ off (Fig.~\ref{fig:mtex_examples}o). The
+network's error is lower everywhere and only faintly marks the boundaries
+(Fig.~\ref{fig:mtex_examples}h,~p).
+
+Three limits of this comparison should be kept in mind. The filters were run
+with near-default settings rather than tuned for each condition
+(Section~\ref{sec:baselines}). They were, on the other hand, given the true
+scatter level through the grain threshold, which the network never receives.
+Finally, with 10 maps per set the per-set tests have little power, which
+matters only for the closest set, $\theta_{\max} = 3^\circ$.
+
+\begin{figure*}[t]
   \centering
-  \caption{Mean per-pixel error ALL ($^\circ$) on test maps 1--10, scatter
-    only: mean (standard deviation across the 10 maps). Ours is averaged over
-    three training runs. $p$-values of the paired $t$-test against our method:
-    *** $p < 0.001$; n.s.\ not significant ($p \geq 0.05$).}
-  \label{tab:mtex}
-  \small
-  \begin{tabular}{@{}lll@{}}
-    \toprule
-    Method & $\theta_{\max} = 5^\circ$ & $\theta_{\max} = 7^\circ$ \\
-    \midrule
-    Noisy input         & 2.502              & 3.503 \\
-    Mean                & 0.986 (0.016) ***  & 1.383 (0.017) *** \\
-    Median              & 0.408 (0.014) ***  & 0.575 (0.019) *** \\
-    Kuwahara            & 0.977 (0.013) ***  & 1.371 (0.017) *** \\
-    Spline              & 0.403 (0.226) n.s. & 0.601 (0.301) n.s. \\
-    Half-quadratic      & 1.824 (0.022) ***  & 2.569 (0.030) *** \\
-    Infimal convolution & 1.916 (0.015) ***  & 2.903 (0.022) *** \\
-    \textbf{Ours}       & \textbf{0.300} (0.009) & \textbf{0.416} (0.012) \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+  \includegraphics[width=\textwidth]{mtex_comparison.pdf}
+  \caption{Mean per-pixel error ALL of the network and of the six MTEX filters
+    (all with pre-cleaning) on test maps 1--10 of each condition, against the
+    maximum scatter angle; one panel per misindexing level $p$. Points: mean
+    over the 10 maps; bars: standard deviation across them (for the network,
+    each map's value is the mean of the three training runs). Dashed: the
+    noisy input. Note the logarithmic error axis.}
+  \label{fig:mtex}
+\end{figure*}
+
+\input{table_mtex_main}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{mtex_examples.pdf}
+  \caption{Test map 1 cleaned by the best MTEX filter of the set (the median
+    filter in both cases) and by the network (training run 1), coloured with
+    the IPF-Z key. (a)--(h)~$\theta_{\max} = 5^\circ$, $p = 6\%$;
+    (i)--(p)~$\theta_{\max} = 15^\circ$, $p = 9\%$. Top row of each: the true
+    map, the noisy input and the two cleaned maps. Bottom row: the true grain
+    boundaries and the disorientation of each map to the truth, on one
+    logarithmic colour scale, with its mean and the percentage of pixels beyond
+    $10^\circ$.}
+  \label{fig:mtex_examples}
+\end{figure*}

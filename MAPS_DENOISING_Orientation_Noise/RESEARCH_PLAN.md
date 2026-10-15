@@ -51,10 +51,10 @@ the 8 papers does all of these.
 |---|---|
 | Data, splits, 28 test sets + mixed set | **Done** |
 | Blind model, 3 seeds, scored on all 29 test sets | **Done** |
-| MTEX filters (6 `clean-*`, maps 1–10, 29 sets) | **Running** on the Windows PC |
-| Model vs MTEX comparison | Waiting for the MTEX results |
+| MTEX filters (6 `clean-*`, maps 1–10, 29 sets) | **Done** (2026-10-14) |
+| Model vs MTEX comparison | **Done**: in the paper (figure, table, example maps, appendix) |
 | Local-mean-only baseline and ablations | Not started |
-| Statistics (bootstrap, Holm, boundary F1) | Not started |
+| Statistics | Per-set paired t-test, Holm, 95% CI **done**; boundary F1 not started |
 | Robustness tests | Not started |
 | Real data (ni_gain) | Not started |
 | Paper | Abstract, Methods (data, noise, MTEX filters) and a Results draft written. Introduction, Related work, Network, Training, Discussion and Conclusion still empty. |
@@ -129,7 +129,8 @@ the 8 papers does all of these.
   of the 29 sets. The plain filters are skipped: they leave misindexed
   pixels untouched (MTEX does not filter grains under 5 pixels), and with
   no misindexing they give the same result as `clean-*` (checked on map 1).
-- [ ] **Running now** on the Windows PC (about 1.8 h).
+- [x] Run on the Windows PC; 1,740 outputs, no empty pixels; imported to
+  `datasets/results_test_set_mtex/` (2026-10-14).
 
 ### Paper (Step 9, part)
 - [x] Abstract (draft, `paper/abstract.tex`).
@@ -142,19 +143,21 @@ the 8 papers does all of these.
 
 ## 5. Remaining
 
-### 5.1 Next, when the MTEX results arrive (MUST)
+### 5.1 MTEX comparison — done 2026-10-14
 
-1. On Windows: zip the inner `mtex_package\mtex_package\mtex_out` and upload
-   it to `datasets/mtex_package/mtex_out`, replacing the old upload (its
-   `clean-*` files have empty edge pixels).
-2. `bash src/import_mtex_results.sh`
-3. `python3 src/compare_with_mtex.py` and `make score-grid`.
-4. In `results.tex`, replace the "preliminary" MTEX section with the 29-set
-   comparison. Update the MTEX sentence and the speed sentence in the
-   abstract, and the timings in `mtex_baselines.tex`, from the new
-   `mtex_log.csv` files.
-5. Fill the placeholders in `mtex_baselines.tex`: `[processor]` and
-   `[how these values were chosen]` (the 5×5 window and α = 0.25).
+- [x] Imported (`bash src/import_mtex_results.sh datasets/mtex_out`); old upload deleted.
+- [x] `python3 src/compare_with_mtex.py`: scores, per-set paired t-tests with
+  Holm correction and 95% CIs, figures (`figures/mtex_comparison/`,
+  `figures/paper/mtex_comparison.pdf`).
+- [x] `python3 src/make_mtex_tables.py`: main table and appendix tables
+  (`paper/table_mtex_main.tex`, `paper/table_mtex_full.tex`).
+- [x] `python3 src/plot_mtex_examples.py`: example maps
+  (`figures/paper/mtex_examples.pdf`).
+- [x] Results section, abstract and timings updated.
+- Result: the network is lower than the best filter in all 29 sets, significantly
+  in 28 (not in scatter3, where the spline filter is close).
+- [ ] Still open: `[processor]` and `[how these values were chosen]` in
+  `paper/mtex_baselines.tex`.
 
 ### 5.2 A fair comparison (MUST)
 
@@ -320,13 +323,11 @@ boundaries" is still a publishable, honest result.
 
 ## 8. Order of the remaining work
 
-1. MTEX import and comparison; update Results and abstract (5.1).
-2. Local-mean baseline (A1) and statistics (5.2, 5.3): the first full
-   results table.
-3. Decide on MTEX tuning and on the checkpoint question (5.2).
-4. Write the empty paper sections (5.7).
-5. Real data (5.6).
-6. Robustness tests (5.5), then ablations A2–A5 (5.4).
+1. Local-mean baseline (A1) and boundary F1 (5.2, 5.3).
+2. Decide on MTEX tuning and on the checkpoint question (5.2).
+3. Write the empty paper sections (5.7).
+4. Real data (5.6).
+5. Robustness tests (5.5), then ablations A2–A5 (5.4).
 
 ---
 
