@@ -72,8 +72,9 @@ def main():
     p.add_argument("--scatter", type=float, default=15.0)
     p.add_argument("--misindex", type=float, default=0.10)
     p.add_argument("--boundary-bias", type=float, default=4.0)
-    p.add_argument("--val-clean-dir", default=str(ROOT / "datasets/splits/val/clean_euler"))
-    p.add_argument("--val-noisy-dir", default=str(ROOT / "datasets/splits/val/noise_random"))
+    p.add_argument("--val-clean-dir", default=str(ROOT / "datasets/clean_euler_zip_unzip/clean_euler"))
+    p.add_argument("--val-noisy-dir",
+                   default=str(ROOT / "datasets/noise_scatter_misindexing_val/noise_val_random"))
     p.add_argument("--out", default=str(ROOT / "figures/noise_check"))
     args = p.parse_args()
 

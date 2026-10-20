@@ -4,7 +4,7 @@ One YAML file per experiment. The file name is the experiment's name.
 
 | folder | one file per | read by | output |
 |---|---|---|---|
-| `noise/` | test set | `add_ebsd_noise.py` (`noise:` section) | `datasets/noise_<name>/` |
+| `noise/` | test or validation set (`val_` names) | `add_ebsd_noise.py` (`noise:` section) | `datasets/noise_scatter_misindexing/noise_<name>/`, or `datasets/noise_scatter_misindexing_val/noise_<name>/` for `val_` names |
 | `train/` | training run | `train.py` (`train:` section) | `checkpoints/runs/<name>/` |
 
 Inside a section, each key is the script's option name with `-` written as

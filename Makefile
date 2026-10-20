@@ -8,7 +8,9 @@ BUCKET := gs://cmu-gpucloud-aiosman
 #         the noisy maps (datasets/noise_scatter_misindexing/noise_<NOISE>), the model outputs
 #         (datasets/results_test_set_model/<NOISE>), the MTEX outputs
 #         (datasets/results_test_set_mtex/<NOISE>) and the model (checkpoints/checkpoints_<NOISE>).
-#         Its settings live in configs/noise/<NOISE>.yaml.
+#         Its settings live in configs/noise/<NOISE>.yaml. A val_ name (e.g.
+#         `make noise NOISE=val_random`) is a validation set, saved in
+#         datasets/noise_scatter_misindexing_val/noise_<NOISE> instead.
 # RUN   : a training experiment, configs/train/<RUN>.yaml, whose model is in
 #         checkpoints/runs/<RUN>. Without it, `infer` uses the old per-level
 #         model in checkpoints/checkpoints_<NOISE>.
@@ -28,7 +30,9 @@ EBSD_PY := $(HOME)/miniconda3/envs/ebsd/bin/python
 
 CLEAN_DIR := $(PROJ)/datasets/clean_euler_zip_unzip/clean_euler
 TEST_SETS := $(PROJ)/datasets/noise_scatter_misindexing
-NOISY_DIR := $(TEST_SETS)/noise_$(NOISE)
+VAL_SETS  := $(PROJ)/datasets/noise_scatter_misindexing_val
+# A set whose name starts with val_ is a validation set; every other set is a test set.
+NOISY_DIR := $(if $(filter val_%,$(NOISE)),$(VAL_SETS),$(TEST_SETS))/noise_$(NOISE)
 MODEL_OUT := $(PROJ)/datasets/results_test_set_model/$(NOISE)
 MTEX_OUT  := $(PROJ)/datasets/results_test_set_mtex/$(NOISE)
 RESULTS   := $(MODEL_OUT) $(MTEX_OUT)

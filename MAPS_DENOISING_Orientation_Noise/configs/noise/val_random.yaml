@@ -1,21 +1,22 @@
-# Validation set datasets/splits/val/noise_random: maps 501-1000, each with its
-# OWN random noise level, matching the range the blind model is trained on.
-# Saved to disk (not drawn on the fly) so every epoch, run and seed is scored on
-# exactly the same noisy maps. The level each map got is in levels.csv there.
+# Validation set datasets/noise_scatter_misindexing_val/noise_val_random: maps
+# 501-1000, each with its OWN random noise level, matching the range the blind
+# model is trained on. Saved to disk (not drawn on the fly) so every epoch, run
+# and seed is scored on exactly the same noisy maps. The level each map got is
+# in levels.csv there. Built like the test sets, from the main clean folder.
 #
-#   python src/add_ebsd_noise.py --config configs/noise/val_random.yaml \
-#       datasets/splits/val/clean_euler datasets/splits/val/noise_random
+#   make noise NOISE=val_random
 description: Validation maps 501-1000, scatter max uniform in 0-15 deg, misindexing uniform in 0-10%, boundary-biased.
 
 noise:                  # add_ebsd_noise.py settings
   shape: [128, 128]
-  start: 0
-  limit: 0              # every map in the input folder (the 500 val maps)
+  start: 500            # skip maps 1-500 (the test set)
+  limit: 500            # maps 501-1000 are the validation set
   random_levels: true   # per map: scatter max ~ U[0, scatter], misindex ~ U[0, misindex]
   scatter: 15.0         # scatter max ~ U[0, 15] deg, the range of the test grid
   misindex: 0.10
   boundary_bias: 4.0    # a grain-boundary pixel is 4x more likely to be misindexed
-  seed: 1000            # map i uses 1000 + i; the test sets use 0-499, so no overlap
+  seed: 500             # map N gets seed 500 + (N - 1): maps 501-1000 use 1000-1499,
+                        # as before; the test sets use 0-499 and 2000-2499
   save_mask: true
   ang: false            # add later if MTEX needs these maps for tuning
   step: 1.0

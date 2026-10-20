@@ -40,8 +40,7 @@ python3 $P/src/prepare_cache.py --jobs 8
 
 **1.4 The validation set**: 500 maps, a random noise level each *(done)*:
 ```bash
-python3 $P/src/add_ebsd_noise.py --config $P/configs/noise/val_random.yaml \
-    $P/datasets/splits/val/clean_euler $P/datasets/splits/val/noise_random
+make noise NOISE=val_random   # -> datasets/noise_scatter_misindexing_val/noise_val_random
 ```
 
 **1.5 The test sets** *(done)*: 28 grid sets (scatter 1-15 deg x misindexing

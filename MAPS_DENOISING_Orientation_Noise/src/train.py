@@ -89,8 +89,10 @@ def parse_args():
     p.add_argument("--train-cache", default="split_train_clean",
                    help="packed training maps in datasets/cache; 'train_clean' is "
                         "the pre-split cache the scatter5/7/9 runs used")
-    p.add_argument("--val-clean-dir", default=str(ROOT / "datasets/splits/val/clean_euler"))
-    p.add_argument("--val-noisy-dir", default=str(ROOT / "datasets/splits/val/noise_random"),
+    p.add_argument("--val-clean-dir", default=str(ROOT / "datasets/clean_euler_zip_unzip/clean_euler"),
+                   help="clean maps, matched to the noisy ones by map number")
+    p.add_argument("--val-noisy-dir",
+                   default=str(ROOT / "datasets/noise_scatter_misindexing_val/noise_val_random"),
                    help="fixed noisy validation maps; '' carves validation out of "
                         "the training cache instead")
     p.add_argument("--seed", type=int, default=42)
