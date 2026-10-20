@@ -1,4 +1,3 @@
-# Test set datasets/noise_scatter5_mis3: maps 1-500, one cell of the test grid
 # (see src/make_test_grid.py, which wrote this file).
 #
 #   make noise NOISE=scatter5_mis3
@@ -11,7 +10,7 @@ noise:                  # add_ebsd_noise.py settings
   scatter: 5.0          # max tilt angle in deg; angle is uniform in [0, max]
   misindex: 0.03
   boundary_bias: 4.0    # a grain-boundary pixel is 4x more likely to be misindexed
-  seed: 0               # shared by every cell of the grid: paired design
-  save_mask: true
+  seed: 0               # 	Fixes the randomness, so every run makes exactly the same noise. All grid files share this seed, so only the noise levels differ between test sets.
+  save_mask: true       # save a map of which pixels were misindexed
   ang: true             # .ang copies for MTEX
-  step: 1.0
+  step: 1.0              # Pixel spacing written into the .ang files
