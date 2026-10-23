@@ -1,0 +1,32 @@
+{
+  "git": {
+    "commit": "40ef3d249641b536e5ba6125c60e1a0edf0df10c-dirty",
+    "dirty_files": [
+      "MAPS_DENOISING_Orientation_Noise/src/eval_model.sh",
+      "MAPS_DENOISING_Orientation_Noise/src/train_model_cpu.sh",
+      "MAPS_DENOISING_Orientation_Noise/src/plot_nonsignificant.py"
+    ]
+  },
+  "time": "2026-10-23T03:51:36-04:00",
+  "host": "orchard-community-1",
+  "slurm_job": "160640",
+  "command": "/home/aiosman/miniconda3/envs/ebsd/bin/python score_dataset.py --clean-dir /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/clean_euler_zip_unzip/clean_euler --noisy-dir /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter_misindexing_val/noise_val_random --results /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/results_val_set_model/val_random --shape 128 128 --jobs 8 --all-maps --csv /project/community/aiosman/MAPS_DENOISING_Orientation_Noise/figures/val_random/scores_mean.csv",
+  "config": null,
+  "args": {
+    "clean_dir": "/project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/clean_euler_zip_unzip/clean_euler",
+    "noisy_dir": "/project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/noise_scatter_misindexing_val/noise_val_random",
+    "results": [
+      "/project/community/aiosman/MAPS_DENOISING_Orientation_Noise/datasets/results_val_set_model/val_random"
+    ],
+    "shape": [
+      128,
+      128
+    ],
+    "limit": 0,
+    "jobs": 8,
+    "all_maps": true,
+    "only": null,
+    "exclude": null,
+    "csv": "/project/community/aiosman/MAPS_DENOISING_Orientation_Noise/figures/val_random/scores_mean.csv"
+  }
+}

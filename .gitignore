@@ -15,6 +15,7 @@ MAPS_DENOSING/datasets/*
 *.zip
 MAPS_DENOSING_Gaussian_Noise/datasets/*
 MAPS_DENOISING_Orientation_Noise/datasets/*
-MAPS_DENOISING_Orientation_Noise/checkpoints/*
+MAPS_DENOISING_Orientation_Noise/MODEL_PIPELINE/checkpoints/*
 MAPS_DENOISING_Orientation_Noise/MATLAB_MTEX_OUTPUT/*
 matlab/*
+MAPS_DENOISING_Orientation_Noise/SHARED/dataset_checkpoints_sync_log/*

@@ -7,22 +7,28 @@ BUCKET := gs://cmu-gpucloud-aiosman
 # NOISE : which noise set to use, e.g. `make score-all NOISE=scatter7`. It picks
 #         the noisy maps (datasets/noise_scatter_misindexing/noise_<NOISE>), the model outputs
 #         (datasets/results_test_set_model/<NOISE>), the MTEX outputs
-#         (datasets/results_test_set_mtex/<NOISE>) and the model (checkpoints/checkpoints_<NOISE>).
-#         Its settings live in configs/noise/<NOISE>.yaml. A val_ name (e.g.
+#         (datasets/results_test_set_mtex/<NOISE>) and the model (MODEL_PIPELINE/checkpoints/checkpoints_<NOISE>).
+#         Its settings live in SHARED/configs/noise/<NOISE>.yaml. A val_ name (e.g.
 #         `make noise NOISE=val_random`) is a validation set, saved in
 #         datasets/noise_scatter_misindexing_val/noise_<NOISE> instead.
-# RUN   : a training experiment, configs/train/<RUN>.yaml, whose model is in
-#         checkpoints/runs/<RUN>. Without it, `infer` uses the old per-level
-#         model in checkpoints/checkpoints_<NOISE>.
+# RUN   : a training experiment, MODEL_PIPELINE/configs/train/<RUN>.yaml, whose model is in
+#         MODEL_PIPELINE/checkpoints/runs/<RUN>. Without it, `infer` uses the old per-level
+#         model in MODEL_PIPELINE/checkpoints/checkpoints_<NOISE>.
 # SCATTER, MISINDEX : noise levels for `make preview` (deg, %); several allowed,
 #         e.g. `make preview SCATTER="1 5 9" MISINDEX="0 9 15"`
 PROJ  := MAPS_DENOISING_Orientation_Noise
+# the three code folders of the project
+MODEL_DIR  := $(PROJ)/MODEL_PIPELINE
+MTEX_DIR   := $(PROJ)/MTEX_PIPELINE
+SHARED_DIR := $(PROJ)/SHARED
 MAP   := 00001
 SHAPE := 128 128
 NOISE := scatter5
 RUN   :=
 SCATTER  := 5
 MISINDEX := 3
+# RUNS : the trained models `make eval-val` scores on the validation set
+RUNS := blind_learned_seed1 blind_learned_seed2 blind_learned_seed3
 
 # The scoring scripts run on plain numpy, but the torch utilities need the
 # `ebsd` env -- base has no torch.
@@ -36,8 +42,8 @@ NOISY_DIR := $(if $(filter val_%,$(NOISE)),$(VAL_SETS),$(TEST_SETS))/noise_$(NOI
 MODEL_OUT := $(PROJ)/datasets/results_test_set_model/$(NOISE)
 MTEX_OUT  := $(PROJ)/datasets/results_test_set_mtex/$(NOISE)
 RESULTS   := $(MODEL_OUT) $(MTEX_OUT)
-CKPT      := $(if $(RUN),$(PROJ)/checkpoints/runs/$(RUN)/best.pth,$(PROJ)/checkpoints/checkpoints_$(NOISE)/best.pth)
-FIGURES   := $(PROJ)/figures/$(NOISE)
+CKPT      := $(if $(RUN),$(MODEL_DIR)/checkpoints/runs/$(RUN)/best.pth,$(MODEL_DIR)/checkpoints/checkpoints_$(NOISE)/best.pth)
+FIGURES   := $(SHARED_DIR)/figures/$(NOISE)
 
 CLEAN := $(CLEAN_DIR)/map_$(MAP)_clean_euler.txt
 NOISY := $(NOISY_DIR)/map_$(MAP)_clean_euler_noisy.txt

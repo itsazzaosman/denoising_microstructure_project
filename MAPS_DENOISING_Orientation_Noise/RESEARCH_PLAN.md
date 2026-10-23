@@ -79,7 +79,7 @@ the 8 papers does all of these.
 
 ### Pipeline and data
 - [x] Data and checkpoints restored from GCS; the nightly sync works again.
-- [x] One file for all data locations: `src/paths.py` (2026-10-14).
+- [x] One file for all data locations: `SHARED/src/paths.py` (2026-10-14).
 - [x] Results split into two folders (2026-10-14):
   `datasets/results_test_set_model/<set>/` (network) and
   `datasets/results_test_set_mtex/<set>/` (MTEX). The September 2026 MTEX
@@ -95,7 +95,7 @@ the 8 papers does all of these.
   9%, 500 maps each, boundary bias 4. One shared seed (0), so two sets
   differ only in the amount of noise.
 - [x] Mixed set `test_random`: every map has its own random noise level.
-- [x] Input noise of every set measured: `figures/test_grid/input_noise.csv`.
+- [x] Input noise of every set measured: `SHARED/figures/test_grid/input_noise.csv`.
 - [x] `.ang` copies of every set for MTEX.
 
 ### Model (Step 4)
@@ -145,14 +145,14 @@ the 8 papers does all of these.
 
 ### 5.1 MTEX comparison — done 2026-10-14
 
-- [x] Imported (`bash src/import_mtex_results.sh datasets/mtex_out`); old upload deleted.
-- [x] `python3 src/compare_with_mtex.py`: scores, per-set paired t-tests with
-  Holm correction and 95% CIs, figures (`figures/mtex_comparison/`,
-  `figures/paper/mtex_comparison.pdf`).
-- [x] `python3 src/make_mtex_tables.py`: main table and appendix tables
+- [x] Imported (`bash MTEX_PIPELINE/src/import_mtex_results.sh datasets/mtex_out`); old upload deleted.
+- [x] `python3 SHARED/src/compare_with_mtex.py`: scores, per-set paired t-tests with
+  Holm correction and 95% CIs, figures (`SHARED/figures/mtex_comparison/`,
+  `SHARED/figures/paper/mtex_comparison.pdf`).
+- [x] `python3 SHARED/src/make_mtex_tables.py`: main table and appendix tables
   (`paper/table_mtex_main.tex`, `paper/table_mtex_full.tex`).
-- [x] `python3 src/plot_mtex_examples.py`: example maps
-  (`figures/paper/mtex_examples.pdf`).
+- [x] `python3 SHARED/src/plot_mtex_examples.py`: example maps
+  (`SHARED/figures/paper/mtex_examples.pdf`).
 - [x] Results section, abstract and timings updated.
 - Result: the network is lower than the best filter in all 29 sets, significantly
   in 28 (not in scatter3, where the spline filter is close).
@@ -222,11 +222,11 @@ the model never saw.
   misindexing 0–10%). No retraining is needed.
   - Test sets: `scatter18`, `scatter20` (more scatter), `scatter5_mis15`,
     `scatter5_mis20` (more misindexing), `scatter20_mis15` (both).
-  - Each needs a copy of `configs/noise/scatter15_mis9.yaml` with new
+  - Each needs a copy of `SHARED/configs/noise/scatter15_mis9.yaml` with new
     `scatter` / `misindex` values (keep `seed: 0`), then
     `make noise NOISE=<set>`.
   - One GPU job per seed (`eval_model.sh` takes one RUN):
-    `RUN=blind_learned_seed1 SETS="scatter18 scatter20 scatter5_mis15 scatter5_mis20 scatter20_mis15" sbatch src/eval_model.sh`,
+    `RUN=blind_learned_seed1 SETS="scatter18 scatter20 scatter5_mis15 scatter5_mis20 scatter20_mis15" sbatch MODEL_PIPELINE/src/eval_model.sh`,
     then seed2 and seed3. About 22 s per set per seed.
   - Write one honest sentence in the Discussion: "the error grows gradually
     beyond the training range" or "it breaks down above X".
@@ -279,17 +279,17 @@ doi:10.5281/zenodo.7497682, via
 
 ### 5.8 Housekeeping
 
-- [ ] `COMMANDS.md`, `README.md` and `configs/README.md` still use the old
+- [ ] `COMMANDS.md`, `README.md` and `SHARED/configs/README.md` still use the old
   paths (`mtex_out_<set>`, `datasets/clean_euler`, `datasets/noise_<set>`).
 - [ ] Test the figure scripts after the path changes: `plot_error_maps`,
   `make_results_figures`, `plot_noise_examples`, `make_mtex_package`,
-  `plot_mtex_maps`, `check_noise`, `summarize_test_grid`.
+  `check_noise`, `summarize_test_grid`.
 - [ ] Home folder over its disk quota ("Disk quota exceeded" on 2026-10-14);
   free some space.
 - [ ] The rclone OneDrive remote is empty; re-create it with `rclone config`.
 - [ ] Optional: activate MATLAB on the cluster (CMU licence) and add the
   Statistics and Machine Learning Toolbox, to run MTEX here
-  (`src/run_mtex_grid.sh`).
+  (`MTEX_PIPELINE/src/run_mtex_grid.sh`).
 
 ---
 
