@@ -15,18 +15,18 @@
 # against the other models and the MTEX filters of each set. One GPU job, so
 # nothing is predicted on a CPU.
 #
-#     RUN=blind_learned_seed1 sbatch eval_model.sh
+#     CONFIG=blind_both_seed1 sbatch eval_model.sh
 #
-# RUN is a training experiment: its model is MODEL_PIPELINE/checkpoints/runs/<RUN>/best.pth
-# and its predictions are written as
-# datasets/results_test_set_model/<set>/<stem>__<RUN>.txt, so several runs sit
+# CONFIG is the training config (MODEL_PIPELINE/configs/train/<CONFIG>.yaml): its
+# model is best.pth in the config's checkpoints_dir, and its predictions are
+# written as datasets/results_test_set_model/<set>/<stem>__<CONFIG>.txt, so several runs sit
 # side by side in one score table, next to datasets/results_test_set_mtex/<set>/. SETS overrides the
 # list, e.g. SETS="scatter5 scatter5_mis6".
 #
 # A val_ set is the validation set instead: read from
 # datasets/noise_scatter_misindexing_val/, predictions written to
 # datasets/results_val_set_model/<set>/, scored with no MTEX results (none exist):
-#     RUN=blind_learned_seed1 SETS=val_random sbatch eval_model.sh
+#     CONFIG=blind_both_seed1 SETS=val_random sbatch eval_model.sh
 
 set -euo pipefail
 
@@ -34,8 +34,16 @@ PROJECT_DIR=/project/community/aiosman
 EXP="$PROJECT_DIR/MAPS_DENOISING_Orientation_Noise"
 PYTHON="$HOME/miniconda3/envs/ebsd/bin/python"
 
-[[ -n "${RUN:-}" ]] || { echo "ERROR: set RUN=<training experiment name>" >&2; exit 1; }
-CKPT="$EXP/MODEL_PIPELINE/checkpoints/runs/$RUN/best.pth"
+[[ -n "${CONFIG:-}" ]] || { echo "ERROR: set CONFIG=<training config name>" >&2; exit 1; }
+CFG_DIR="$EXP/MODEL_PIPELINE/configs/train"
+if [[ -f "$CONFIG" ]]; then CONFIG="$(realpath "$CONFIG")"
+elif [[ -f "$CFG_DIR/$CONFIG.yaml" ]]; then CONFIG="$CFG_DIR/$CONFIG.yaml"
+else echo "ERROR: no config '$CONFIG' (also looked in $CFG_DIR)" >&2; exit 1; fi
+RUN="$(basename "$CONFIG" .yaml)"             # the model's name in the score tables
+# best.pth sits in the config's checkpoints_dir (relative to $EXP unless absolute)
+CKPT="$("$PYTHON" -c 'import sys, yaml, pathlib
+d = pathlib.Path(yaml.safe_load(open(sys.argv[1]))["train"].get("checkpoints_dir", "MODEL_PIPELINE/checkpoints"))
+print(d if d.is_absolute() else pathlib.Path(sys.argv[2]) / d)' "$CONFIG" "$EXP")/best.pth"
 [[ -f "$CKPT" ]] || { echo "ERROR: no checkpoint at $CKPT" >&2; exit 1; }
 nvidia-smi || { echo "ERROR: no GPU in this allocation" >&2; exit 1; }
 SETS="${SETS:-$(cat "$EXP/SHARED/configs/test_grid.txt") test_random}"

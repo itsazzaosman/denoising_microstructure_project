@@ -1,178 +1,159 @@
 #!/usr/bin/env python3
-"""
-Pack the clean Euler .txt maps into one memmappable .npy array.
+"""Pack CLEAN Euler-angle text maps into memory-mappable NumPy caches.
 
-Parsing a 512 KB text map costs ~12 ms, so a 12k-map epoch would spend ~2.5
-CPU-minutes just re-parsing text it already read last epoch. Packing once into
-a float32 array drops that to a memmap read.
+Reads map IDs from SHARED/configs/splits/{train,val,test}.txt and writes:
+    datasets/cache/split_train_clean.npy
+    datasets/cache/split_train_clean_ids.npy
+    datasets/cache/split_val_clean.npy
+    datasets/cache/split_val_clean_ids.npy
+    datasets/cache/split_test_clean.npy
+    datasets/cache/split_test_clean_ids.npy
 
-The test maps (1-500) are packed separately, together with their PRE-GENERATED
-noisy maps and bad-pixel masks, because those are the exact inputs MTEX was
-given -- the test set must not be re-noised or the comparison stops being
-like-for-like.
+No noise generation, noisy inputs, masks, or quaternion conversion.
+Original Euler angles are stored as float32, in the same order returned by
+SHARED/src/orientation.py:load_euler.
 
-The training maps are the ids listed in SHARED/configs/splits/train.txt (made by
-make_splits.py), packed as cache/split_train_clean.npy. The older cache,
-cache/train_clean.npy (the first 12,000 usable maps with id > 500, which
-overlaps today's validation maps 501-1000), is left alone so the scatter5/7/9
-runs can still be reproduced from their configs.
-
-Usage
------
-    python prepare_cache.py                 # every map in the train split
-    python prepare_cache.py --n-train 12000 # only the first 12,000 of them
+From MODEL_PIPELINE/src:
+    python prepare_cache.py                  # process all three splits
+    python prepare_cache.py --split val      # only validation
+    python prepare_cache.py --split test --jobs 8
+    python prepare_cache.py --all --overwrite  # intentionally replace caches
 """
 
 import argparse
-import re
 import sys
+import uuid
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
 
-# Shared code (orientation maths, paths, scoring) lives in SHARED/src.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "SHARED" / "src"))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "SHARED" / "src"))
 from orientation import load_euler
 from paths import CLEAN_DIR
 
-ROOT = Path(__file__).resolve().parents[2]
-CACHE_DIR = ROOT / "datasets/cache"
-
-SPLITS_DIR = ROOT / "SHARED/configs/splits"
-TEST_MAX_ID = 500          # maps 1-500 are the MTEX baseline set; never train on them
+SPLITS_DIR = ROOT / "SHARED" / "configs" / "splits"
+CACHE_DIR = ROOT / "datasets" / "cache"
+VALID_SPLITS = ("train", "val", "test")
 
 
-def map_id(path):
-    m = re.search(r"map_(\d+)", Path(path).name)
-    return int(m.group(1)) if m else None
-
-
-def _read(args):
-    path, n = args
+def read_ids(split):
+    source = SPLITS_DIR / f"{split}.txt"
+    if not source.is_file():
+        raise FileNotFoundError(f"Missing split file: {source}")
     try:
-        e = load_euler(path)
-        return (e.astype(np.float32), None) if e.shape[0] == n else (None, "wrong length")
+        ids = [int(x) for x in source.read_text().split()]
+    except ValueError as exc:
+        raise ValueError(f"Non-integer map ID in {source}") from exc
+    if not ids:
+        raise ValueError(f"No map IDs in {source}")
+    if len(ids) != len(set(ids)):
+        raise ValueError(f"Duplicate map IDs in {source}")
+    if any(i < 1 for i in ids):
+        raise ValueError(f"Invalid map ID in {source}: IDs must be positive")
+    if split == "test" and any(i > 500 for i in ids):
+        raise ValueError(f"Test split {source} must only contain IDs 1–500")
+    if split == "val" and any(not 501 <= i <= 1000 for i in ids):
+        raise ValueError(f"Validation split {source} must only contain IDs 501–1000")
+    if split == "train" and any(i <= 1000 for i in ids):
+        raise ValueError(f"Training split {source} must only contain IDs >= 1001")
+    return ids
+
+
+def read_map(task):
+    map_id, pixels = task
+    path = CLEAN_DIR / f"map_{map_id:05d}_clean_euler.txt"
+    try:
+        data = np.asarray(load_euler(path))
+        if data.shape != (pixels, 3):
+            raise ValueError(f"shape {data.shape}; expected ({pixels}, 3)")
+        if not np.isfinite(data).all():
+            raise ValueError("NaN or infinity in Euler angles")
+        return data.astype(np.float32), None
     except Exception as exc:
-        return None, str(exc)
+        return None, f"map {map_id} ({path}): {exc}"
 
 
-def usable(paths, min_bytes=400_000):
-    """Drop maps that are obviously truncated before allocating anything.
+def pack_split(split, ids, pixels, jobs, overwrite):
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    data_path = CACHE_DIR / f"split_{split}_clean.npy"
+    ids_path = CACHE_DIR / f"split_{split}_clean_ids.npy"
+    if not overwrite and (data_path.exists() or ids_path.exists()):
+        raise FileExistsError(
+            f"Cache already exists for {split}: {data_path} / {ids_path}. "
+            "Use --overwrite only if you intend to replace it."
+        )
 
-    A healthy 128x128 map is 500-523 KB. The dataset has a handful of short or
-    zero-byte maps left over from an interrupted generation run; filtering them
-    here means the output array can be allocated at exactly the right size.
-    """
-    ok, skipped = [], []
-    for f in paths:
-        try:
-            if Path(f).stat().st_size >= min_bytes:
-                ok.append(f)
-            else:
-                skipped.append(Path(f).name)
-        except OSError:
-            skipped.append(Path(f).name)
-    if skipped:
-        print(f"  skipping {len(skipped)} short/unreadable maps: {skipped[:6]}"
-              + (" ..." if len(skipped) > 6 else ""))
-    return ok
-
-
-def pack(paths, n, out, jobs, label):
-    """Read `paths` in parallel into a single (M, n, 3) float32 .npy.
-
-    Rows are filled contiguously and the map ids are saved alongside, so a read
-    that fails anyway leaves unused zero rows at the END of the array rather
-    than a hole in the middle. The loader takes its length from the ids file,
-    never from the array's shape.
-    """
-    arr = np.lib.format.open_memmap(out, mode="w+", dtype=np.float32,
-                                    shape=(len(paths), n, 3))
-    kept, ids, bad = 0, [], []
-    with ProcessPoolExecutor(max_workers=jobs) as pool:
-        for path, (e, err) in zip(paths, pool.map(_read, [(p, n) for p in paths],
-                                                  chunksize=16)):
-            if e is None:
-                bad.append((Path(path).name, err))
-                continue
-            arr[kept] = e
-            ids.append(map_id(path))
-            kept += 1
-            if kept % 2000 == 0:
-                print(f"  {label}: {kept}/{len(paths)}", flush=True)
-    arr.flush()
-    del arr
-
-    np.save(out.with_name(out.stem + "_ids.npy"), np.array(ids, dtype=np.int32))
-    print(f"  {label}: wrote {kept} maps to {out.name}"
-          + (f"   ({len(bad)} unusable: {bad[:4]})" if bad else ""))
-    return kept
+    # Write temporary files first; invalid data never replaces an existing cache.
+    token = uuid.uuid4().hex
+    temp_data = CACHE_DIR / f".split_{split}_clean_{token}.npy"
+    temp_ids = CACHE_DIR / f".split_{split}_clean_ids_{token}.npy"
+    arr = None
+    try:
+        arr = np.lib.format.open_memmap(
+            temp_data, mode="w+", dtype=np.float32,
+            shape=(len(ids), pixels, 3)
+        )
+        with ProcessPoolExecutor(max_workers=jobs) as pool:
+            tasks = ((map_id, pixels) for map_id in ids)
+            for index, (data, error) in enumerate(pool.map(read_map, tasks, chunksize=16)):
+                if error is not None:
+                    raise ValueError(error)
+                arr[index] = data
+                if (index + 1) % 2000 == 0:
+                    print(f"  {split}: {index + 1}/{len(ids)}", flush=True)
+        arr.flush()
+        del arr
+        arr = None
+        np.save(temp_ids, np.asarray(ids, dtype=np.int32))
+        # Publish finished caches. IDs and rows are always in identical order.
+        temp_data.replace(data_path)
+        temp_ids.replace(ids_path)
+        print(f"  {split}: saved {len(ids)} maps -> {data_path}")
+        print(f"         IDs -> {ids_path}")
+    finally:
+        if arr is not None:
+            del arr
+        temp_data.unlink(missing_ok=True)
+        temp_ids.unlink(missing_ok=True)
 
 
 def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--shape", nargs=2, type=int, default=(128, 128), metavar=("NY", "NX"))
-    p.add_argument("--n-train", type=int, default=0,
-                   help="how many training maps to pack (0 = the whole train split)")
-    p.add_argument("--split", default="train",
-                   help="pack the ids in SHARED/configs/splits/<split>.txt as "
-                        "cache/split_<split>_clean.npy")
-    p.add_argument("--jobs", type=int, default=16)
-    p.add_argument("--noisy-dir", default=None,
-                   help="pack this directory as the test set. Omit to pack only "
-                        "the training maps -- inference can read a noisy "
-                        "directory directly (--noisy-dir), so the test half of "
-                        "the cache is optional.")
-    args = p.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--split", choices=VALID_SPLITS, help="Pack one split")
+    selection.add_argument("--all", action="store_true", help="Pack all splits (default)")
+    parser.add_argument("--shape", nargs=2, type=int, default=(128, 128), metavar=("NY", "NX"))
+    parser.add_argument("--jobs", type=int, default=8)
+    parser.add_argument("--overwrite", action="store_true", help="Replace existing cache files")
+    args = parser.parse_args()
+    if args.jobs < 1 or any(s < 1 for s in args.shape):
+        parser.error("--jobs and --shape dimensions must be positive")
 
-    n = int(np.prod(args.shape))
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    selected = (args.split,) if args.split else VALID_SPLITS
+    split_ids = {split: read_ids(split) for split in selected}
+    # Check uniqueness across selected splits, in addition to split ID ranges.
+    for i, a in enumerate(selected):
+        for b in selected[i + 1:]:
+            overlap = set(split_ids[a]) & set(split_ids[b])
+            if overlap:
+                raise ValueError(f"Map IDs shared by {a} and {b}: {sorted(overlap)[:10]}")
+    # Check output collisions before writing any split.
+    if not args.overwrite:
+        existing = [str(CACHE_DIR / f"split_{split}_clean{suffix}.npy")
+                    for split in selected for suffix in ("", "_ids")
+                    if (CACHE_DIR / f"split_{split}_clean{suffix}.npy").exists()]
+        if existing:
+            raise FileExistsError("Output cache already exists; use --overwrite to replace:\n" + "\n".join(existing))
 
-    split_file = SPLITS_DIR / f"{args.split}.txt"
-    split_ids = [int(line) for line in split_file.read_text().split()]
-    if any(i <= TEST_MAX_ID for i in split_ids):
-        raise SystemExit(f"{split_file} contains test maps (id <= {TEST_MAX_ID})")
-    train_paths = usable([CLEAN_DIR / f"map_{i:05d}_clean_euler.txt" for i in split_ids])
-    if args.n_train:
-        train_paths = train_paths[:args.n_train]
-
-    print(f"split            : {split_file} ({len(split_ids)} ids), packing {len(train_paths)}")
-    pack(train_paths, n, CACHE_DIR / f"split_{args.split}_clean.npy", args.jobs, args.split)
-
-    if not args.noisy_dir:
-        print("\nno --noisy-dir given: training cache only (inference reads "
-              "noisy directories directly)")
-        print(f"cache in {CACHE_DIR}")
-        return
-
-    # ---- test set: clean + the exact noisy inputs MTEX was given ----
-    noisy_paths = sorted(Path(args.noisy_dir).glob("map_*_noisy.txt"),
-                         key=lambda f: map_id(f) or 0)
-    noisy_paths = [f for f in noisy_paths if (map_id(f) or 0) <= TEST_MAX_ID]
-    ids = [map_id(f) for f in noisy_paths]
-    clean_paths = [CLEAN_DIR / f"map_{i:05d}_clean_euler.txt" for i in ids]
-    good = set(usable(clean_paths))
-    keep = [i for i, c in enumerate(clean_paths) if c in good]
-    noisy_paths = [noisy_paths[i] for i in keep]
-    clean_paths = [clean_paths[i] for i in keep]
-    ids = [ids[i] for i in keep]
-
-    print(f"test set         : {len(ids)} maps (ids {min(ids)}-{max(ids)})")
-    pack(clean_paths, n, CACHE_DIR / "test_clean.npy", args.jobs, "test clean")
-    pack(noisy_paths, n, CACHE_DIR / "test_noisy.npy", args.jobs, "test noisy")
-
-    masks = np.zeros((len(ids), n), dtype=bool)
-    missing = 0
-    for k, f in enumerate(noisy_paths):
-        mp = Path(str(f) + ".badmask.npy")
-        if mp.exists():
-            masks[k] = np.load(mp).ravel()
-        else:
-            missing += 1
-    np.save(CACHE_DIR / "test_badmask.npy", masks)
-    print(f"  test masks: wrote {len(ids)} ({missing} missing)")
-    print(f"\ncache in {CACHE_DIR}")
+    print(f"Clean Euler directory: {CLEAN_DIR}")
+    print(f"Splits directory: {SPLITS_DIR}")
+    print(f"Cache directory: {CACHE_DIR}")
+    for split in selected:
+        print(f"Packing {split}: {len(split_ids[split])} map IDs")
+        pack_split(split, split_ids[split], args.shape[0] * args.shape[1], args.jobs, args.overwrite)
+    print("Done. Only clean Euler angles were cached; no noise or quaternions.")
 
 
 if __name__ == "__main__":

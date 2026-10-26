@@ -1,0 +1,39 @@
+# Blind model with both noise types on every map. Seeds 1, 2 and 3 differ only
+# in seed; together they give the run-to-run spread.
+#
+#   make train-gpu CONFIG=blind_both_seed2
+description: Blind model, scatter max 1-15 deg and misindexing 1-20% on every map, seed 2.
+
+train:                  # train.py settings
+  # noise: every access of a map draws its own level, for training and validation
+  scatter_min_deg: 1.0  # scatter max ~ U[1, 15] deg: scatter is never off
+  scatter_max_deg: 15.0
+  misindex_min: 0.01    # misindexed fraction ~ U[0.01, 0.20]: misindexing is never off
+  misindex_max: 0.20
+  boundary_bias: 4.0    # a grain-boundary pixel is 4x more likely to be misindexed
+  seed: 2
+
+  # model
+  kernel: learned       # the network chooses every neighbour's weight
+  mean_radius: 4        # 9x9 neighbour window
+  base_channels: 32
+  max_refine_deg: 25.0  # limit on each of the 3 numbers of the small correction
+  no_misfit: false
+
+  # optimisation
+  epochs: 60
+  batch_size: 16
+  lr: 0.0002
+  weight_decay: 0.0
+  loss: charbonnier
+  loss_eps: 1.0e-10
+  w_bad: 5.0
+  w_bnd: 2.0
+  w_gate: 1.0
+  w_refine: 5.0
+  w_replace: 0.5
+
+  # output (paths are relative to MAPS_DENOISING_Orientation_Noise/) and data loading
+  checkpoints_dir: MODEL_PIPELINE/checkpoints/seed2  # best.pth, last.pth, history.json, run_info.json
+  figures_dir: MODEL_PIPELINE/figures/seed2          # training_curves.png, redrawn every epoch
+  num_workers: 8        # data-loading processes; keep equal to --cpus-per-task in train_model.sh

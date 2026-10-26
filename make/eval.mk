@@ -43,7 +43,7 @@ maps: score plot
 
 
 eval-val:
-	cd $(MODEL_DIR)/src && dep=; for R in $(RUNS); do \
-	  j=$$(RUN=$$R SETS=val_random sbatch --parsable $${dep:+--dependency=afterok:$$dep} eval_model.sh) || exit 1; \
+	cd $(MODEL_DIR)/src/job_scripts && dep=; for R in $(RUNS); do \
+	  j=$$(CONFIG=$$R SETS=val_random sbatch --parsable $${dep:+--dependency=afterok:$$dep} eval_model.sh) || exit 1; \
 	  echo "$$R -> job $$j"; dep=$$j; \
 	done

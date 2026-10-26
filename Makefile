@@ -27,8 +27,8 @@ NOISE := scatter5
 RUN   :=
 SCATTER  := 5
 MISINDEX := 3
-# RUNS : the trained models `make eval-val` scores on the validation set
-RUNS := blind_learned_seed1 blind_learned_seed2 blind_learned_seed3
+# RUNS : the training configs whose models `make eval-val` scores on the validation set
+RUNS := blind_both_seed1 blind_both_seed2 blind_both_seed3
 
 # The scoring scripts run on plain numpy, but the torch utilities need the
 # `ebsd` env -- base has no torch.
