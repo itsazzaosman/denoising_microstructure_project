@@ -25,6 +25,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -91,12 +92,55 @@ def parse_args():
                         "training runs on a GPU, never on CPU")
     p.add_argument("--resume", default="", help="checkpoint path, or 'auto' for last.pth")
     p.add_argument("--limit", type=int, default=0, help="debug: cap training maps")
+    # Weights & Biases. Log in once with `wandb login`; the API key is never stored here.
+    p.add_argument("--wandb-project", default="", help="W&B project; empty = no W&B logging")
+    p.add_argument("--wandb-entity", default="", help="W&B user or team; empty = your default")
+    p.add_argument("--wandb-name", default="", help="run name in W&B; empty = the config file name")
+    p.add_argument("--wandb-mode", default="online", choices=["online", "offline"],
+                   help="offline: log locally, upload later with `wandb sync`")
     # Relative paths are taken from the project folder (MAPS_DENOISING_Orientation_Noise/).
     p.add_argument("--checkpoints-dir", default="MODEL_PIPELINE/checkpoints",
                    help="where best.pth, last.pth, history.json and run_info.json go")
     p.add_argument("--figures-dir", default="MODEL_PIPELINE/figures",
                    help="where training_curves.png goes")
     return parse_with_config(p, "train")
+
+
+def start_wandb(args, config, ckpt_dir):
+    """The W&B run for this training run, or None when W&B logging is off.
+
+    The run ID is kept in the checkpoint folder, so a resumed job continues the
+    same W&B run. Logging never stops training: if W&B cannot reach its server
+    (compute nodes may have no internet) it falls back to offline mode, and if
+    that fails too, training continues without it.
+    """
+    if not args.wandb_project:
+        return None
+    try:
+        import wandb
+    except ImportError:
+        print("W&B: wandb is not installed in this environment; continuing without it", flush=True)
+        return None
+    id_file = ckpt_dir / "wandb_run_id.txt"
+    run_id = id_file.read_text().strip() if id_file.exists() else uuid.uuid4().hex[:12]
+    id_file.write_text(run_id)
+    name = args.wandb_name or (Path(config["path"]).stem if config else ckpt_dir.name)
+    settings = dict(project=args.wandb_project, entity=args.wandb_entity or None, name=name,
+                    id=run_id, resume="allow", dir=str(ckpt_dir),
+                    config={**vars(args), "config_file": config["content"] if config else None})
+    for mode in dict.fromkeys([args.wandb_mode, "offline"]):
+        try:
+            run = wandb.init(mode=mode, **settings)
+        except Exception as exc:
+            print(f"W&B: could not start in {mode} mode ({exc})", flush=True)
+            continue
+        print(f"W&B: logging {mode}, run '{name}' (id {run_id})", flush=True)
+        if mode == "offline":
+            print(f"W&B: upload it later from a login node with: wandb sync {ckpt_dir / 'wandb'}",
+                  flush=True)
+        return run
+    print("W&B: continuing without it", flush=True)
+    return None
 
 
 def project_path(path):
@@ -247,6 +291,7 @@ def main():
     # One record per start, so a run resumed after a code change shows both commits.
     prov = provenance(config, args)
     append_provenance(ckpt_dir / "run_info.json", prov)
+    run = start_wandb(args, config, ckpt_dir)
     print(f"code: {prov['git']['commit']}"
           + (f"   config: {config['path']}" if config else ""), flush=True)
 
@@ -346,12 +391,26 @@ def main():
         }
 
         torch.save(state, ckpt_dir / "last.pth")
+        if run is not None:
+            run.log({"train/loss": train_loss,
+                     **{f"train/{k}": v / max(step, 1) for k, v in parts_sum.items()},
+                     "val/loss": val["loss"], "val/ALL": val["all"], "val/BOUNDARY": val["bnd"],
+                     "val/CORRUPTED": val["bad"], "val/gross_pct": val["gross"],
+                     "val/score": val["score"], "val/noisy_input_ALL": val["in_all"],
+                     "val/gate_precision": val["gate_precision"],
+                     "val/gate_recall": val["gate_recall"],
+                     "lr": scheduler.get_last_lr()[0], "epoch_minutes": dt / 60},
+                    step=epoch + 1)
+            if is_best:
+                run.summary.update({"best_score": best_score, "best_epoch": epoch + 1})
 
         if is_best:
             torch.save(state, ckpt_dir / "best.pth")
             print(f"    new best (score {best_score:.4f}) -> best.pth", flush=True)
 
     print(f"\ndone. best score {best_score:.4f}", flush=True)
+    if run is not None:
+        run.finish()
 
 
 if __name__ == "__main__":

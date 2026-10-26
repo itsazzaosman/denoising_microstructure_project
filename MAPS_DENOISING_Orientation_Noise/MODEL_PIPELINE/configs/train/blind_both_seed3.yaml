@@ -34,3 +34,8 @@ train:                  # train.py settings
   checkpoints_dir: MODEL_PIPELINE/checkpoints/seed3  # best.pth, last.pth, history.json, run_info.json
   figures_dir: MODEL_PIPELINE/figures/seed3          # training_curves.png, redrawn every epoch
   num_workers: 8        # data-loading processes; keep equal to --cpus-per-task in train_model.sh
+
+  # Weights & Biases (log in once with `wandb login`; the API key is never stored here)
+  wandb_project: ebsd-orientation-denoising
+  wandb_entity: ""      # your W&B user or team; empty = your default
+  wandb_mode: online    # offline: log locally, upload later with `wandb sync`
