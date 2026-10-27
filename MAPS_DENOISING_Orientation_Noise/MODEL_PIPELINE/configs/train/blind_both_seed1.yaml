@@ -37,5 +37,5 @@ train:                  # train.py settings
 
   # Weights & Biases (log in once with `wandb login`; the API key is never stored here)
   wandb_project: ebsd-orientation-denoising
-  wandb_entity: ""      # your W&B user or team; empty = your default
+  wandb_entity: azzaizzeldien-carnegie-mellon-university   # W&B team the API key can write to
   wandb_mode: online    # offline: log locally, upload later with `wandb sync`
