@@ -39,3 +39,7 @@ train:                  # train.py settings
   wandb_project: ebsd-orientation-denoising
   wandb_entity: azzaizzeldien-carnegie-mellon-university   # W&B team the API key can write to
   wandb_mode: online    # offline: log locally, upload later with `wandb sync`
+
+  # One step = one batch of 16 maps
+  # steps per epoch = training maps/batch size = 38,998/16 =  2,437
+  # The whole run: 2,437 steps × 60 epochs = 146,220 steps

@@ -1,4 +1,4 @@
-.PHONY: score plot score-all score-grid maps eval-val
+.PHONY: score plot score-all score-grid maps eval-val eval-test
 
 score:
 	python $(SHARED_DIR)/src/score_filter_denoising.py \
@@ -40,6 +40,16 @@ score-grid:
 
 
 maps: score plot
+
+
+# Test one trained model on every test set (GPU job, eval_model.sh), e.g.
+#   make eval-test CONFIG=blind_both_seed1                 now
+#   make eval-test CONFIG=blind_both_seed1 AFTER=162403    once training job 162403 ends OK
+#   make eval-test CONFIG=blind_both_seed1 SETS="scatter5 scatter5_mis3"   only these sets
+eval-test:
+	@test -n "$(CONFIG)" || { echo "set CONFIG=<training config>, e.g. CONFIG=blind_both_seed1"; exit 1; }
+	cd $(MODEL_DIR)/src/job_scripts && CONFIG=$(CONFIG) SETS="$(SETS)" sbatch \
+	  --job-name=eval_$(CONFIG) $(if $(AFTER),--dependency=afterok:$(AFTER)) eval_model.sh
 
 
 eval-val:

@@ -53,7 +53,7 @@ MASK  := $(NOISY).badmask.npy
 # make/cloud.mk  auth, ls, ls-training, ls-datasets, ls-checkpoints, upload, download
 # make/data.mk   noise, preview, cache, check-orientation
 # make/train.mk  train-gpu, train-cpu, infer, watch
-# make/eval.mk   score, plot, score-all, score-grid, maps
+# make/eval.mk   score, plot, score-all, score-grid, maps, eval-test, eval-val
 # The settings above must stay above this include line, so every file sees them.
 # Plain `make` runs this.
 .DEFAULT_GOAL := ls
