@@ -133,6 +133,13 @@ def start_wandb(args, config, ckpt_dir):
             run = wandb.init(mode=mode, **settings)
         except Exception as exc:
             print(f"W&B: could not start in {mode} mode ({exc})", flush=True)
+            # A failed start keeps the run ID claimed until W&B is shut down,
+            # which would make the offline retry fail with "run ID is in use".
+            try:
+                wandb.finish(exit_code=1)
+                wandb.teardown()
+            except Exception:
+                pass
             continue
         print(f"W&B: logging {mode}, run '{name}' (id {run_id})", flush=True)
         if mode == "offline":

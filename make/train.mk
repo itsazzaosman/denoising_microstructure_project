@@ -2,8 +2,8 @@
 
 
 train-gpu:
-	cd $(MODEL_DIR)/src/job_scripts && sbatch --job-name=$(or $(CONFIG),ebsd_orient_gpu) --partition=preempt \
-	  --qos=preempt_qos --time=2-00:00:00 train_model.sh --resume auto
+	cd $(MODEL_DIR)/src/job_scripts && sbatch --job-name=$(or $(CONFIG),ebsd_orient_gpu) --partition=general \
+	  --qos=general_qos --time=12:00:00 train_model.sh --resume auto
 
 	 
 
