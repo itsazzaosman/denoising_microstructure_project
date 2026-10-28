@@ -11,9 +11,9 @@ BUCKET := gs://cmu-gpucloud-aiosman
 #         Its settings live in SHARED/configs/noise/<NOISE>.yaml. A val_ name (e.g.
 #         `make noise NOISE=val_random`) is a validation set, saved in
 #         datasets/noise_scatter_misindexing_val/noise_<NOISE> instead.
-# RUN   : a training experiment, MODEL_PIPELINE/configs/train/<RUN>.yaml, whose model is in
-#         MODEL_PIPELINE/checkpoints/runs/<RUN>. Without it, `infer` uses the old per-level
-#         model in MODEL_PIPELINE/checkpoints/checkpoints_<NOISE>.
+# SEED  : which model results `make score-grid` scores, the folder
+#         datasets/results_test_set_model/<SEED> (named like its checkpoint folder)
+# SETS  : only these test sets for `make infer` / `make score-grid`, e.g. SETS=scatter5_mis3
 # SCATTER, MISINDEX : noise levels for `make preview` (deg, %); several allowed,
 #         e.g. `make preview SCATTER="1 5 9" MISINDEX="0 9 15"`
 PROJ  := MAPS_DENOISING_Orientation_Noise
@@ -24,11 +24,10 @@ SHARED_DIR := $(PROJ)/SHARED
 MAP   := 00001
 SHAPE := 128 128
 NOISE := scatter5
-RUN   :=
+SEED  := seed1
+SETS  :=
 SCATTER  := 5
 MISINDEX := 3
-# RUNS : the training configs whose models `make eval-val` scores on the validation set
-RUNS := blind_both_seed1 blind_both_seed2 blind_both_seed3
 
 # The scoring scripts run on plain numpy, but the torch utilities need the
 # `ebsd` env -- base has no torch.
@@ -42,7 +41,6 @@ NOISY_DIR := $(if $(filter val_%,$(NOISE)),$(VAL_SETS),$(TEST_SETS))/noise_$(NOI
 MODEL_OUT := $(PROJ)/datasets/results_test_set_model/$(NOISE)
 MTEX_OUT  := $(PROJ)/datasets/results_test_set_mtex/$(NOISE)
 RESULTS   := $(MODEL_OUT) $(MTEX_OUT)
-CKPT      := $(if $(RUN),$(MODEL_DIR)/checkpoints/runs/$(RUN)/best.pth,$(MODEL_DIR)/checkpoints/checkpoints_$(NOISE)/best.pth)
 FIGURES   := $(SHARED_DIR)/figures/$(NOISE)
 
 CLEAN := $(CLEAN_DIR)/map_$(MAP)_clean_euler.txt
@@ -53,7 +51,7 @@ MASK  := $(NOISY).badmask.npy
 # make/cloud.mk  auth, ls, ls-training, ls-datasets, ls-checkpoints, upload, download
 # make/data.mk   noise, preview, cache, check-orientation
 # make/train.mk  train-gpu, train-cpu, infer, watch
-# make/eval.mk   score, plot, score-all, score-grid, maps, eval-test, eval-val
+# make/eval.mk   score, plot, score-all, score-grid, maps
 # The settings above must stay above this include line, so every file sees them.
 # Plain `make` runs this.
 .DEFAULT_GOAL := ls

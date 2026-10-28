@@ -1,4 +1,4 @@
-.PHONY: score plot score-all score-grid maps eval-val eval-test
+.PHONY: score plot score-all score-grid maps
 
 score:
 	python $(SHARED_DIR)/src/score_filter_denoising.py \
@@ -29,31 +29,21 @@ score-all:
 	  --csv       $(FIGURES)/scores_mean.csv
 
 
+# Score the model's test outputs against the MTEX filters, one table per set.
+# CPU only (about 1 s per set); prints tables and saves no files. Only maps that every
+# method has are scored (MTEX ran on maps 1-10), so the columns compare fairly.
+#   make score-grid                      all 28 sets, model in results_test_set_model/$(SEED)
+#   make score-grid SETS=scatter5_mis3   one set (several: SETS="scatter5 scatter9_mis6")
 score-grid:
-	for S in $$(cat $(SHARED_DIR)/configs/test_grid.txt) test_random; do \
-	  mkdir -p $(SHARED_DIR)/figures/$$S; \
+	@for S in $(or $(SETS),$$(cat $(SHARED_DIR)/configs/test_grid.txt)); do \
+	  M=$(PROJ)/datasets/results_test_set_model/$(SEED)/$$S; \
+	  echo; echo "===== $$S ====="; \
+	  [ -d $$M ] || { echo "no model results in $$M (run make infer first)"; continue; }; \
 	  python $(SHARED_DIR)/src/score_dataset.py --clean-dir $(CLEAN_DIR) \
-	    --noisy-dir $(TEST_SETS)/noise_$$S --results $(PROJ)/datasets/results_test_set_model/$$S $(PROJ)/datasets/results_test_set_mtex/$$S \
-	    --shape $(SHAPE) --jobs 8 --all-maps --csv $(SHARED_DIR)/figures/$$S/scores_mean.csv \
-	    | sed -n '/^method/,/^====/p'; \
+	    --noisy-dir $(TEST_SETS)/noise_$$S --results $$M $(PROJ)/datasets/results_test_set_mtex/$$S \
+	    --shape $(SHAPE) --jobs 1 | sed -n '/^method /,/^====/p'; \
 	done
 
 
 maps: score plot
 
-
-# Test one trained model on every test set (GPU job, eval_model.sh), e.g.
-#   make eval-test CONFIG=blind_both_seed1                 now
-#   make eval-test CONFIG=blind_both_seed1 AFTER=162403    once training job 162403 ends OK
-#   make eval-test CONFIG=blind_both_seed1 SETS="scatter5 scatter5_mis3"   only these sets
-eval-test:
-	@test -n "$(CONFIG)" || { echo "set CONFIG=<training config>, e.g. CONFIG=blind_both_seed1"; exit 1; }
-	cd $(MODEL_DIR)/src/job_scripts && CONFIG=$(CONFIG) SETS="$(SETS)" sbatch \
-	  --job-name=eval_$(CONFIG) $(if $(AFTER),--dependency=afterok:$(AFTER)) eval_model.sh
-
-
-eval-val:
-	cd $(MODEL_DIR)/src/job_scripts && dep=; for R in $(RUNS); do \
-	  j=$$(CONFIG=$$R SETS=val_random sbatch --parsable $${dep:+--dependency=afterok:$$dep} eval_model.sh) || exit 1; \
-	  echo "$$R -> job $$j"; dep=$$j; \
-	done

@@ -204,7 +204,8 @@ def main():
     print(f"{args.method_name:<22}{avg['all']:>12.3f}{avg['bad']:>12.3f}"
           f"{avg['bnd']:>12.3f}{avg['gross']:>12.2f}")
     print("=" * 74)
-    print("\nnow run:  make score-all NOISE=<set>   (scores this against every MTEX method)")
+    print("\n(these are the model alone on every map; `make score-grid` compares it "
+          "with MTEX on the maps MTEX has)")
 
 
 if __name__ == "__main__":
