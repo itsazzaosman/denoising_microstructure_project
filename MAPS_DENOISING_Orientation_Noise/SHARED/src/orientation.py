@@ -85,6 +85,52 @@ def disorientation_deg(q1, q2):
 
 
 # ---------------------------------------------------------------------------
+# IPF colouring  (moved here from plot_maps.py)
+# ---------------------------------------------------------------------------
+
+
+def quat_to_matrix(q):
+    """Rotation matrices (N, 3, 3) of quaternions (N, 4)."""
+    w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+    return np.stack([
+        np.stack([1 - 2*(y*y + z*z), 2*(x*y - w*z), 2*(x*z + w*y)], -1),
+        np.stack([2*(x*y + w*z), 1 - 2*(x*x + z*z), 2*(y*z - w*x)], -1),
+        np.stack([2*(x*z - w*y), 2*(y*z + w*x), 1 - 2*(x*x + y*y)], -1),
+    ], axis=-2)
+
+
+def ipf_z_color(q):
+    """
+    Standard IPF-Z colouring for cubic m-3m.
+
+    The sample Z direction is expressed in crystal coordinates, then coloured
+    by ipf_rgb.
+    """
+    R = quat_to_matrix(q)
+    return ipf_rgb(R[:, :, 2])          # sample z in crystal frame
+
+
+def ipf_rgb(v):
+    """
+    Colour crystal directions v (N, 3) for cubic m-3m.
+
+    Each direction is folded into the standard stereographic triangle using
+    |components| sorted ascending, then mapped to RGB with [001] red, [101]
+    green, [111] blue.
+    """
+    a = np.sort(np.abs(v), axis=1)      # a <= b <= c, folds into the triangle
+    lo, mid, hi = a[:, 0], a[:, 1], a[:, 2]
+
+    rgb = np.stack([hi - mid,
+                    (mid - lo) * np.sqrt(2.0),
+                    lo * np.sqrt(3.0)], axis=1)
+    peak = rgb.max(axis=1, keepdims=True)
+    peak[peak < 1e-12] = 1.0
+    rgb = np.sqrt(rgb / peak)           # sqrt lifts the midtones, as TSL does
+    return np.clip(rgb, 0, 1)
+
+
+# ---------------------------------------------------------------------------
 # I/O
 # ---------------------------------------------------------------------------
 

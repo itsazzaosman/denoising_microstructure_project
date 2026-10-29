@@ -34,9 +34,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import ListedColormap
 
-from orientation import boundary_mask, euler_to_quat, load_euler
+from orientation import boundary_mask, euler_to_quat, ipf_rgb, ipf_z_color, load_euler
 from paths import CLEAN_DIR, noise_dir
-from plot_maps import ipf_rgb, ipf_z_color
 
 ROOT = Path(__file__).resolve().parents[2]
 SHAPE = (128, 128)

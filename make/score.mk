@@ -6,7 +6,7 @@
 #   make score-grid                      all 28 sets, model in results_test_set_model/$(SEED)
 #   make score-grid SETS=scatter5_mis3   one set (several: SETS="scatter5 scatter9_mis6")
 score-grid:
-	@for S in $(or $(SETS),$$(cat $(SHARED_DIR)/configs/test_grid.txt)); do \
+	@for S in $(or $(SETS),$plot-test$(cat $(SHARED_DIR)/configs/test_grid.txt)); do \
 	  M=$(PROJ)/datasets/results_test_set_model/$(SEED)/$$S; \
 	  echo; echo "===== $$S ====="; \
 	  [ -d $$M ] || { echo "no model results in $$M (run make infer first)"; continue; }; \
@@ -14,3 +14,4 @@ score-grid:
 	    --noisy-dir $(TEST_SETS)/noise_$$S --results $$M $(PROJ)/datasets/results_test_set_mtex/$$S \
 	    --shape $(SHAPE) --jobs 1 | sed -n '/^method /,/^====/p'; \
 	done
+

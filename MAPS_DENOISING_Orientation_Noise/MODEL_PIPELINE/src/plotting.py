@@ -13,6 +13,16 @@ Sections
                    errors against the noisy input, and the misindexing gate.
                    train.py calls it after every epoch; the dotted line marks
                    the best epoch, the one saved as best.pth.
+  test curves      score_test_grid() + draw_test_curves(): the model against the
+                   six MTEX filters on the 28 fixed-level test sets, one figure
+                   per measure (ALL, BOUNDARY, CORRUPTED, >10 deg). Scored with
+                   score_dataset.py's own functions on the maps every method has
+                   (MTEX: maps 1-10), so the numbers are those of `make score-grid`.
+  maps             load_map_methods() + draw_maps() + draw_filter_grid(): one test
+                   map cleaned by every method (clean, noisy, the six MTEX filters,
+                   the model), as IPF-Z orientation maps, as per-pixel error maps,
+                   and as the 3 x 3 paper figure (after Atindama et al. 2023, Fig. 2).
+                   Replaces SHARED/src/plot_maps.py and plot_all_filters.py.
 
 Add new figures as new sections with their own draw_* function and a
 sub-command in main().
@@ -24,17 +34,28 @@ Usage
 
     # several runs on one figure, e.g. the three seeds
     python plotting.py curves ../checkpoints/seed{1,2,3} --out ../figures/seeds.png
+
+    # model vs MTEX on the test grid, from datasets/results_test_set_model/seed1
+    # (default output: MODEL_PIPELINE/figures/seed1/curves_*.png)
+    python plotting.py test --seed seed1
+
+    # one map, every method (default output: MODEL_PIPELINE/figures/seed1/maps/);
+    # MTEX has maps 1-10 only, --crop Y X H W zooms the IPF / error figures
+    python plotting.py maps --seed seed1 --set scatter5_mis3 --map 2
 """
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import FuncFormatter, MaxNLocator, NullFormatter
+from matplotlib.colors import LogNorm
+from matplotlib.ticker import (FixedLocator, FuncFormatter, LogLocator, MaxNLocator,
+                               NullFormatter, NullLocator)
 
 # ---------------------------------------------------------------------------
 # style
@@ -45,6 +66,15 @@ SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#62
 STYLE = {"font.size": 9, "axes.titlesize": 10, "text.color": INK, "axes.labelcolor": INK_2,
          "xtick.color": INK_2, "ytick.color": INK_2, "axes.edgecolor": MUTED}
 PLAIN = FuncFormatter(lambda v, _: f"{v:g}")         # 0.42, not 4.2x10^-1
+FIGURES = Path(__file__).resolve().parents[1] / "figures"           # MODEL_PIPELINE/figures
+SHARED_SRC = Path(__file__).resolve().parents[2] / "SHARED" / "src"
+MAP_SHAPE = (128, 128)
+
+
+def _use_shared():
+    """Make SHARED/src (orientation maths, paths, scoring) importable."""
+    if str(SHARED_SRC) not in sys.path:
+        sys.path.insert(0, str(SHARED_SRC))
 
 
 def _style_axis(ax, title, xlabel=None):
@@ -178,6 +208,242 @@ def _load_runs(paths):
 
 
 # ---------------------------------------------------------------------------
+# test curves: the model against the MTEX filters on the test grid
+# ---------------------------------------------------------------------------
+
+SCATTER = (1, 3, 5, 7, 9, 12, 15)          # maximum scatter angles of the test grid, deg
+MISINDEX = (0, 3, 6, 9)                    # misindexed pixels of the test grid, %
+FILTERS = {"clean-mean": "mean", "clean-median": "median", "clean-kuwahara": "Kuwahara",
+           "clean-spline": "spline", "clean-halfquad": "half-quadratic",
+           "clean-infconv": "infimal conv."}
+NOISY = "noisy (no filter)"
+# key: (file name, y-axis label, misindexing levels drawn, legend place)
+MEASURES = {
+    "all":   ("all", "mean error, all pixels (deg)", MISINDEX, "lower right"),
+    "bnd":   ("boundary", "mean error, boundary pixels (deg)", MISINDEX, "lower right"),
+    "bad":   ("corrupted", "mean error, misindexed pixels (deg)", MISINDEX[1:], "lower right"),
+    "gross": ("gross", "pixels more than 10° off (% of map)", MISINDEX, "upper left"),
+}
+
+
+def _set_name(scatter, mis):
+    return f"scatter{scatter}" + (f"_mis{mis}" if mis else "")
+
+
+def score_test_grid(seed, sets=None, shape=MAP_SHAPE):
+    """Per-map errors of every method on every test set, using only the maps that
+    every method has. Returns ({set: {method: {measure: per-map values}}}, model names)."""
+    _use_shared()
+    from paths import CLEAN_DIR, MODEL_RESULTS, MTEX_RESULTS, TEST_SETS
+    from score_dataset import index_dataset, score_one
+
+    scores, models = {}, set()
+    for name in sets or [_set_name(s, m) for m in MISINDEX for s in SCATTER]:
+        model_dir = MODEL_RESULTS / seed / name
+        if not model_dir.is_dir():
+            print(f"  {name:<15} skipped: no model results in {model_dir}")
+            continue
+        jobs = index_dataset(CLEAN_DIR, TEST_SETS / f"noise_{name}", [model_dir, MTEX_RESULTS / name])
+        methods = set().union(*(j["results"] for j in jobs))
+        jobs = [j for j in jobs if len(j["results"]) == len(methods)]
+        per_map = [s for s in (score_one(j, shape) for j in jobs) if s]
+        scores[name] = {m: {k: np.array([s[m][k] for s in per_map if m in s]) for k in MEASURES}
+                        for m in [NOISY, *methods]}
+        models |= {f.stem.split("__")[-1] for f in model_dir.glob("*__*.txt")}
+        print(f"  {name:<15} {len(per_map)} maps x {len(methods)} methods", flush=True)
+    return scores, sorted(models)
+
+
+def _mean_sd(v):
+    v = v[np.isfinite(v)]
+    if v.size == 0:
+        return np.nan, np.nan
+    return float(v.mean()), float(v.std(ddof=1)) if v.size > 1 else 0.0
+
+
+def _style_test_axis(ax, gross):
+    if gross:   # zeros are common here, so the axis is linear below 0.01 % and log above
+        ax.set_yscale("symlog", linthresh=0.01, linscale=0.4)
+        ax.yaxis.set_major_locator(FixedLocator([0, 0.01, 0.1, 1, 10]))
+        ax.yaxis.set_minor_locator(NullLocator())
+        ax.set_ylim(-0.002, 70)
+    else:
+        ax.set_yscale("log")
+        ax.yaxis.set_major_locator(LogLocator(subs=(1, 2, 5)))
+        ax.yaxis.set_minor_formatter(NullFormatter())
+    ax.yaxis.set_major_formatter(PLAIN)
+    ax.set_xticks(SCATTER)
+    ax.grid(color=GRID, lw=0.6)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+
+
+def draw_test_curves(scores, models, out_dir):
+    """One figure per measure: error against the maximum scatter angle, one panel per
+    misindexing level, one line per method. Points are the mean over the maps, bars the
+    standard deviation across them (the spread between maps, not a confidence interval).
+    Returns the paths written."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    x = np.array(SCATTER, float)
+    lines = [(m, label, SERIES[i + 1], False) for i, (m, label) in enumerate(FILTERS.items())]
+    lines += [(m, m, SERIES[0] if i == 0 else SERIES[7], True) for i, m in enumerate(models)]
+    written = []
+    for key, (stem, ylabel, levels, legend) in MEASURES.items():
+        gross, square = key == "gross", len(levels) == 4
+        with plt.rc_context(STYLE):
+            fig, axes = plt.subplots(2 if square else 1, 2 if square else 3, sharex=True,
+                                     sharey=True, squeeze=False,
+                                     figsize=(8.4, 6.6) if square else (11.0, 3.8))
+            for ax, mis, letter in zip(axes.flat, levels, "abcd"):
+                sets = [_set_name(s, mis) for s in SCATTER]
+                stat = lambda m: np.array([_mean_sd(scores[s][m][key])
+                                           if m in scores.get(s, {}) else (np.nan, np.nan)
+                                           for s in sets]).T
+                ax.plot(x, stat(NOISY)[0], color=MUTED, ls="--", lw=1.2, label="noisy input")
+                for m, label, colour, ours in lines:
+                    mu, sd = stat(m)
+                    low = np.minimum(sd, mu if gross else 0.9 * mu)   # bar stays above the axis floor
+                    ax.errorbar(x, mu, yerr=[low, sd], color=colour, lw=2.6 if ours else 1.1,
+                                marker="o", ms=4.5 if ours else 2.8, elinewidth=0.8, capsize=1.5,
+                                zorder=3 if ours else 2, label=label)
+                _style_test_axis(ax, gross)
+                ax.set_title(f"({letter}) misindexed pixels $p$ = {mis}%", loc="left", color=INK)
+            for ax in axes[-1]:
+                ax.set_xlabel(r"maximum scatter angle $\theta_{\max}$ (deg)")
+            for ax in axes[:, 0]:
+                ax.set_ylabel(ylabel)
+            axes[0, 0].legend(frameon=False, fontsize=7.5, ncol=2, loc=legend)
+            fig.tight_layout()
+            path = out_dir / f"curves_{stem}.png"
+            fig.savefig(path, dpi=200)
+            plt.close(fig)
+            written.append(path)
+    return written
+
+
+# ---------------------------------------------------------------------------
+# maps: one test map, cleaned by every method
+# ---------------------------------------------------------------------------
+
+
+def _set_label(name):
+    scatter, _, mis = name.removeprefix("scatter").partition("_mis")
+    return rf"$\theta_{{\max}}$ = {scatter}°, $p$ = {mis or 0}%"
+
+
+def load_map_methods(seed, set_name, map_id):
+    """The clean map and every method's version of one test map. Returns (q_clean,
+    [(name, q, is_model)]): the noisy input, the MTEX filters MTEX has for this map,
+    then the model(s) found in datasets/results_test_set_model/<seed>/<set>."""
+    _use_shared()
+    from orientation import euler_to_quat, load_euler
+    from paths import MODEL_RESULTS, MTEX_RESULTS, clean_map, noise_dir
+
+    if not noise_dir(set_name).is_dir():
+        sys.exit(f"no test set {set_name!r} (expected {noise_dir(set_name)})")
+    stem = f"map_{map_id:05d}_clean_euler_noisy"
+    read = lambda path: euler_to_quat(load_euler(path))
+    q_clean = read(clean_map(map_id))
+    panels = [("noisy input", read(noise_dir(set_name) / f"{stem}.txt"), False)]
+    for f, name in FILTERS.items():
+        path = MTEX_RESULTS / set_name / f"{stem}_noisy__{f}.txt"
+        if path.exists():
+            panels.append((f"MTEX {name}", read(path), False))
+    models = sorted((MODEL_RESULTS / seed / set_name).glob(f"{stem}_noisy__*.txt"))
+    if not models:
+        print(f"note: no model result for map {map_id} in {MODEL_RESULTS / seed / set_name}")
+    panels += [(path.stem.split("__")[-1], read(path), True) for path in models]
+    return q_clean, panels
+
+
+def draw_maps(q_clean, panels, title, out_stem, crop=None):
+    """Two figures of one map. <out_stem>_ipf.png: the IPF-Z orientation maps of the
+    clean map and every method, titled with the mean error. <out_stem>_error.png: each
+    pixel's error against the clean map on a log colour scale, so the 0.5° scatter and
+    the 40° misindexed specks show in one image. crop = (y, x, h, w) zooms into a region.
+    Returns the paths written."""
+    _use_shared()
+    from orientation import disorientation_deg, ipf_z_color
+
+    def grid(values):
+        g = values.reshape(*MAP_SHAPE, -1)
+        if crop:
+            y, x, h, w = crop
+            g = g[y:y + h, x:x + w]
+        return np.squeeze(g)
+
+    rows = [("clean (truth)", q_clean, None, False)]
+    rows += [(name, q, disorientation_deg(q_clean, q), ours) for name, q, ours in panels]
+    ncols, written = 4, []
+    with plt.rc_context(STYLE):
+        for kind, shown in (("ipf", rows), ("error", rows[1:])):
+            nrows = -(-len(shown) // ncols)
+            fig, axes = plt.subplots(nrows, ncols, figsize=(3.1 * ncols, 3.3 * nrows), squeeze=False)
+            for ax, (name, q, d, ours) in zip(axes.flat, shown):
+                if kind == "ipf":
+                    ax.imshow(grid(ipf_z_color(q)), interpolation="nearest")
+                    label = name if d is None else f"{name}\nmean error {d.mean():.3f}°"
+                else:
+                    im = ax.imshow(grid(np.clip(d, 0.01, None)), cmap="inferno",
+                                   norm=LogNorm(vmin=0.01, vmax=63.0), interpolation="nearest")
+                    label = f"{name}\n>10° off: {100 * (d > 10).mean():.2f}% of pixels"
+                ax.set_title(label, color=INK, weight="bold" if ours else "normal")
+            for ax in axes.flat:
+                ax.set_xticks([])
+                ax.set_yticks([])
+            for ax in axes.flat[len(shown):]:
+                ax.axis("off")
+            if kind == "ipf":
+                fig.suptitle(f"{title}: IPF-Z orientation maps", color=INK, fontsize=11)
+                fig.tight_layout()
+            else:
+                fig.suptitle(f"{title}: error against the clean map (log scale)", color=INK,
+                             fontsize=11)
+                fig.colorbar(im, ax=axes.ravel().tolist(), shrink=0.6, label="error (deg)")
+            path = Path(f"{out_stem}_{kind}.png")
+            fig.savefig(path, dpi=150, bbox_inches="tight")
+            plt.close(fig)
+            written.append(path)
+    return written
+
+
+def draw_filter_grid(q_clean, panels, title, out_stem):
+    """The paper figure: a 3 x 3 grid of IPF-Z maps, clean / noisy / the six MTEX filters /
+    the model, each titled with its mean error, plus the IPF colour key. Needs all six MTEX
+    filters, which exist for maps 1-10 only. Writes <out_stem>_grid.png; returns its path,
+    or None when a method is missing."""
+    _use_shared()
+    from orientation import disorientation_deg, ipf_z_color
+    from plot_noise_examples import ipf_key
+
+    mtex = [p for p in panels if p[0].startswith("MTEX ")]
+    models = [p for p in panels if p[2]]
+    if len(mtex) != len(FILTERS) or not models:
+        print(f"grid figure skipped: it needs all {len(FILTERS)} MTEX filters and the model "
+              f"(found {len(mtex)} filters, {len(models)} model); MTEX has maps 1-10 only")
+        return None
+    maps = [("clean", q_clean, False), panels[0], *mtex, models[0]]
+    with plt.rc_context({**STYLE, "font.size": 8}):
+        fig = plt.figure(figsize=(7.0, 7.0))
+        gs = fig.add_gridspec(3, 4, width_ratios=[1, 1, 1, 0.55], wspace=0.06, hspace=0.22,
+                              left=0.01, right=0.99, top=0.9, bottom=0.01)
+        for k, (name, q, ours) in enumerate(maps):
+            ax = fig.add_subplot(gs[k // 3, k % 3])
+            ax.imshow(ipf_z_color(q).reshape(*MAP_SHAPE, 3), interpolation="nearest")
+            err = "" if k == 0 else f"\nmean error {disorientation_deg(q_clean, q).mean():.2f}°"
+            ax.set_title(f"({'abcdefghi'[k]}) {name}{err}", fontsize=8.5, color=INK,
+                         weight="bold" if ours else "normal")
+            ax.axis("off")
+        ipf_key(fig.add_subplot(gs[1, 3]))
+        fig.suptitle(title, fontsize=10, color=INK)
+        path = Path(f"{out_stem}_grid.png")
+        fig.savefig(path, dpi=300)
+        plt.close(fig)
+    return path
+
+
+# ---------------------------------------------------------------------------
 # command line
 # ---------------------------------------------------------------------------
 
@@ -189,6 +455,20 @@ def main():
     c.add_argument("runs", nargs="+", help="run folders (holding history.json) or history.json files")
     c.add_argument("--out", default=None, help="output PNG; default <run>/training_curves.png for "
                                                "one run, ./training_comparison.png for several")
+    t = sub.add_parser("test", help="model vs MTEX on the test grid (4 figures)")
+    t.add_argument("--seed", default="seed1",
+                   help="model results folder, datasets/results_test_set_model/<seed>")
+    t.add_argument("--sets", nargs="+", default=None, help="only these test sets (default: all 28)")
+    t.add_argument("--out", default=None, help="output folder; default MODEL_PIPELINE/figures/<seed>")
+    m = sub.add_parser("maps", help="one test map cleaned by every method (3 figures)")
+    m.add_argument("--seed", default="seed1",
+                   help="model results folder, datasets/results_test_set_model/<seed>")
+    m.add_argument("--set", default="scatter5_mis3", help="test set, e.g. scatter15_mis9")
+    m.add_argument("--map", type=int, default=1, help="map number (MTEX has maps 1-10)")
+    m.add_argument("--crop", nargs=4, type=int, default=None, metavar=("Y", "X", "H", "W"),
+                   help="zoom the IPF and error figures into a region")
+    m.add_argument("--out", default=None,
+                   help="output folder; default MODEL_PIPELINE/figures/<seed>/maps")
     args = p.parse_args()
 
     if args.figure == "curves":
@@ -197,6 +477,22 @@ def main():
             folders[0] / "training_curves.png" if len(runs) == 1 else Path("training_comparison.png"))
         draw_curves(runs, out)
         print(f"wrote {out}")
+    elif args.figure == "test":
+        scores, models = score_test_grid(args.seed, args.sets)
+        out = Path(args.out) if args.out else FIGURES / args.seed
+        for path in draw_test_curves(scores, models, out):
+            print(f"wrote {path}")
+    elif args.figure == "maps":
+        q_clean, panels = load_map_methods(args.seed, args.set, args.map)
+        out = Path(args.out) if args.out else FIGURES / args.seed / "maps"
+        out.mkdir(parents=True, exist_ok=True)
+        stem = out / f"{args.set}_map{args.map:03d}"
+        title = f"Test map {args.map}, {_set_label(args.set)}"
+        crop = tuple(args.crop) if args.crop else None
+        written = draw_maps(q_clean, panels, title, f"{stem}_crop" if crop else stem, crop)
+        written.append(draw_filter_grid(q_clean, panels, title, stem))
+        for path in filter(None, written):
+            print(f"wrote {path}")
 
 
 if __name__ == "__main__":

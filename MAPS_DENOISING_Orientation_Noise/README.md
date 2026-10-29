@@ -256,7 +256,7 @@ MAPS_DENOISING_Orientation_Noise/
 | `MODEL_PIPELINE/src/inference.py` | Runs a checkpoint over the test maps and writes `<stem>__<method-name>.txt` in MTEX's output format, so the scorers treat it like any other method. Pass `--clean-dir` and `--noisy-dir` to read a noise folder directly instead of the test cache. |
 | `SHARED/src/score_filter_denoising.py` | Scores one map: ALL / CORRUPTED / BOUNDARY / >10 deg for every `<stem>__<method>.txt` in a results folder. |
 | `SHARED/src/score_dataset.py` | Scores a whole dataset: per-map means, then the mean and standard deviation across maps; `--only` and `--exclude` pick methods; `--csv` writes the per-map table. |
-| `SHARED/src/plot_maps.py` | Draws IPF-Z and per-pixel error figures for one map. `--only` picks methods and `--crop` zooms in. |
+| `MODEL_PIPELINE/src/plotting.py` | Every figure: training curves, model vs MTEX test curves, and one map cleaned by every method (IPF-Z, error and 3x3 grid). See `make/plot.mk`. |
 | `SHARED/src/sync_to_gcs.py` | Nightly backup: `gcloud storage rsync` of `datasets/` and `MODEL_PIPELINE/checkpoints/` to `gs://cmu-gpucloud-aiosman/DATASET_CHECKPOINTS`. It never deletes from the bucket, and a lock file stops two runs overlapping. Cron runs it at 23:00 and appends its output to `SHARED/dataset_checkpoints_sync_log/sync_log.log`. |
 | `MODEL_PIPELINE/src/train_model.sh` | SLURM job: trains on 1 GPU, then runs inference and `score_dataset.py`. Arguments after the script name are passed to `train.py`; `CKPT_DIR` sets the checkpoint folder (default `checkpoints_gpu/`). |
 | `MODEL_PIPELINE/src/eval_model.sh` | SLURM job (1 GPU): runs a trained run (`RUN=<config name>`) over every test set and scores each one against whatever else is in its results folder. |

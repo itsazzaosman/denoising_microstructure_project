@@ -30,8 +30,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, LogNorm
 
-from orientation import boundary_mask, disorientation_deg, euler_to_quat, load_euler
-from plot_maps import ipf_z_color
+from orientation import (boundary_mask, disorientation_deg, euler_to_quat, ipf_z_color,
+                         load_euler)
 from paths import MODEL_RESULTS, MTEX_RESULTS, clean_map, noise_dir
 
 ROOT = Path(__file__).resolve().parents[2]

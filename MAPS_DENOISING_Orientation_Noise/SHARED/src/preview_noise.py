@@ -31,7 +31,7 @@ import numpy as np
 
 from add_ebsd_noise import add_noise, euler_to_quat, load_euler
 from paths import clean_map
-from plot_maps import ipf_z_color
+from orientation import ipf_z_color
 from plot_noise_examples import ipf_key
 
 ROOT = Path(__file__).resolve().parents[2]
