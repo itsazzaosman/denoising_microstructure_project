@@ -14,7 +14,6 @@ BUCKET := gs://cmu-gpucloud-aiosman
 #         datasets/results_test_set_model/<SEED> and MODEL_PIPELINE/checkpoints/<SEED>
 # SETS  : only these test sets for `make infer` / `make score-grid`, e.g. SETS=scatter5_mis3
 # NAME  : the model's name for `make infer` (file names, score tables); empty = config name
-# CROP  : zoom for `make plot-maps`, "rows cols height width", e.g. CROP="40 40 48 48"
 # SCATTER, MISINDEX : noise levels for `make preview` (deg, %); several allowed,
 #         e.g. `make preview SCATTER="1 5 9" MISINDEX="0 9 15"`
 PROJ  := MAPS_DENOISING_Orientation_Noise
@@ -28,7 +27,6 @@ NOISE := scatter5
 SEED  := seed1
 SETS  :=
 NAME  :=
-CROP  :=
 SCATTER  := 5
 MISINDEX := 3
 
@@ -56,7 +54,7 @@ MASK  := $(NOISY).badmask.npy
 # make/infer.mk  infer       (GPU job: model -> denoised test maps)
 # make/score.mk  score-grid  (CPU: model vs MTEX tables, test grid)
 # make/eval.mk   score       (one map of one set)
-# make/plot.mk   plot-train, plot-test, plot-maps  (every figure, plotting.py)
+# make/plot.mk   plot-train, plot-zoom, plot-test, plot-maps  (every figure, plotting.py)
 # The settings above must stay above this include line, so every file sees them.
 # Plain `make` runs this.
 .DEFAULT_GOAL := ls

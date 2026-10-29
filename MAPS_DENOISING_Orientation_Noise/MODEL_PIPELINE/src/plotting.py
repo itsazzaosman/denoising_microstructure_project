@@ -13,15 +13,17 @@ Sections
                    errors against the noisy input, and the misindexing gate.
                    train.py calls it after every epoch; the dotted line marks
                    the best epoch, the one saved as best.pth.
+                   draw_zoom(): the zoomed version of two of those panels,
+                   training vs validation loss and the gate's precision / recall
+                   in %, optionally for the first N epochs only.
   test curves      score_test_grid() + draw_test_curves(): the model against the
                    six MTEX filters on the 28 fixed-level test sets, one figure
                    per measure (ALL, BOUNDARY, CORRUPTED, >10 deg). Scored with
                    score_dataset.py's own functions on the maps every method has
                    (MTEX: maps 1-10), so the numbers are those of `make score-grid`.
-  maps             load_map_methods() + draw_maps() + draw_filter_grid(): one test
-                   map cleaned by every method (clean, noisy, the six MTEX filters,
-                   the model), as IPF-Z orientation maps, as per-pixel error maps,
-                   and as the 3 x 3 paper figure (after Atindama et al. 2023, Fig. 2).
+  maps             load_map_methods() + draw_filter_grid(): one test map cleaned
+                   by every method (clean, noisy, the six MTEX filters, the model)
+                   as a 3 x 3 grid of IPF-Z maps (after Atindama et al. 2023, Fig. 2).
                    Replaces SHARED/src/plot_maps.py and plot_all_filters.py.
 
 Add new figures as new sections with their own draw_* function and a
@@ -35,12 +37,16 @@ Usage
     # several runs on one figure, e.g. the three seeds
     python plotting.py curves ../checkpoints/seed{1,2,3} --out ../figures/seeds.png
 
+    # zoomed loss + gate figure (default output: MODEL_PIPELINE/figures/seed1/training_zoom.png);
+    # --epochs 19 shows epochs 1-19 only (-> training_zoom_epoch19.png)
+    python plotting.py zoom ../checkpoints/seed1 --epochs 19
+
     # model vs MTEX on the test grid, from datasets/results_test_set_model/seed1
     # (default output: MODEL_PIPELINE/figures/seed1/curves_*.png)
     python plotting.py test --seed seed1
 
-    # one map, every method (default output: MODEL_PIPELINE/figures/seed1/maps/);
-    # MTEX has maps 1-10 only, --crop Y X H W zooms the IPF / error figures
+    # one map, every method, as the 3 x 3 grid (MTEX has maps 1-10 only;
+    # default output: MODEL_PIPELINE/figures/seed1/maps/<set>_map<map>_grid.png)
     python plotting.py maps --seed seed1 --set scatter5_mis3 --map 2
 """
 
@@ -53,7 +59,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import LogNorm
 from matplotlib.ticker import (FixedLocator, FuncFormatter, LogLocator, MaxNLocator,
                                NullFormatter, NullLocator)
 
@@ -194,6 +199,47 @@ def draw_curves(runs, path):
                          x=0.01, ha="left", color=INK, fontsize=11)
         fig.tight_layout()
         fig.savefig(path, dpi=110)
+        plt.close(fig)
+
+
+def draw_zoom(name, history, path, epochs=None):
+    """Two panels of one run, larger than in draw_curves: training vs validation loss
+    (log scale) and the misindexing gate's precision and recall on the validation set,
+    in %, on an axis zoomed to the data. epochs = N shows epochs 1-N only; the dotted
+    line is the best epoch among those shown."""
+    total = history[-1]["epoch"]
+    hist = [h for h in history if h["epoch"] <= epochs] if epochs else history
+    if not hist:
+        raise SystemExit(f"no epochs to show (the run has {total})")
+    ep = [h["epoch"] for h in hist]
+    best = best_epoch(hist)
+    with plt.rc_context(STYLE):
+        fig, (ax_loss, ax_gate) = plt.subplots(1, 2, figsize=(14.4, 5.2))
+        ax_loss.plot(ep, [h["train_loss"] for h in hist], color=SERIES[0], lw=2, marker="o",
+                     ms=3.5, label="training")
+        ax_loss.plot(ep, _val(hist, "loss"), color=SERIES[1], lw=2, marker="o", ms=3.5,
+                     label="validation")
+        _log_if_positive(ax_loss)
+        ax_loss.set_ylabel("loss (log scale)")
+        ax_gate.plot(ep, 100 * _val(hist, "gate_precision"), color=SERIES[0], lw=2, marker="o",
+                     ms=3.5, label="precision")
+        ax_gate.plot(ep, 100 * _val(hist, "gate_recall"), color=SERIES[1], lw=2, marker="o",
+                     ms=3.5, label="recall")
+        ax_gate.set_ylabel("%")
+        for ax, title in ((ax_loss, "Training vs validation loss"),
+                          (ax_gate, "Misindexing detection (validation)")):
+            ax.set_xlim(0.5, ep[-1] + 0.5)
+            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+            if best is not None:
+                ax.axvline(best, color=MUTED, ls=":", lw=1.2)
+            _style_axis(ax, title, xlabel="epoch")
+        if best is not None:
+            ax_gate.text(best, ax_gate.get_ylim()[0], f" best epoch {best}", color=MUTED,
+                         fontsize=8, va="bottom")
+        fig.suptitle(f"{name}, epochs 1-{ep[-1]} of {total}", x=0.01, ha="left", color=INK,
+                     fontsize=11)
+        fig.tight_layout()
+        fig.savefig(path, dpi=100)
         plt.close(fig)
 
 
@@ -357,57 +403,6 @@ def load_map_methods(seed, set_name, map_id):
     return q_clean, panels
 
 
-def draw_maps(q_clean, panels, title, out_stem, crop=None):
-    """Two figures of one map. <out_stem>_ipf.png: the IPF-Z orientation maps of the
-    clean map and every method, titled with the mean error. <out_stem>_error.png: each
-    pixel's error against the clean map on a log colour scale, so the 0.5° scatter and
-    the 40° misindexed specks show in one image. crop = (y, x, h, w) zooms into a region.
-    Returns the paths written."""
-    _use_shared()
-    from orientation import disorientation_deg, ipf_z_color
-
-    def grid(values):
-        g = values.reshape(*MAP_SHAPE, -1)
-        if crop:
-            y, x, h, w = crop
-            g = g[y:y + h, x:x + w]
-        return np.squeeze(g)
-
-    rows = [("clean (truth)", q_clean, None, False)]
-    rows += [(name, q, disorientation_deg(q_clean, q), ours) for name, q, ours in panels]
-    ncols, written = 4, []
-    with plt.rc_context(STYLE):
-        for kind, shown in (("ipf", rows), ("error", rows[1:])):
-            nrows = -(-len(shown) // ncols)
-            fig, axes = plt.subplots(nrows, ncols, figsize=(3.1 * ncols, 3.3 * nrows), squeeze=False)
-            for ax, (name, q, d, ours) in zip(axes.flat, shown):
-                if kind == "ipf":
-                    ax.imshow(grid(ipf_z_color(q)), interpolation="nearest")
-                    label = name if d is None else f"{name}\nmean error {d.mean():.3f}°"
-                else:
-                    im = ax.imshow(grid(np.clip(d, 0.01, None)), cmap="inferno",
-                                   norm=LogNorm(vmin=0.01, vmax=63.0), interpolation="nearest")
-                    label = f"{name}\n>10° off: {100 * (d > 10).mean():.2f}% of pixels"
-                ax.set_title(label, color=INK, weight="bold" if ours else "normal")
-            for ax in axes.flat:
-                ax.set_xticks([])
-                ax.set_yticks([])
-            for ax in axes.flat[len(shown):]:
-                ax.axis("off")
-            if kind == "ipf":
-                fig.suptitle(f"{title}: IPF-Z orientation maps", color=INK, fontsize=11)
-                fig.tight_layout()
-            else:
-                fig.suptitle(f"{title}: error against the clean map (log scale)", color=INK,
-                             fontsize=11)
-                fig.colorbar(im, ax=axes.ravel().tolist(), shrink=0.6, label="error (deg)")
-            path = Path(f"{out_stem}_{kind}.png")
-            fig.savefig(path, dpi=150, bbox_inches="tight")
-            plt.close(fig)
-            written.append(path)
-    return written
-
-
 def draw_filter_grid(q_clean, panels, title, out_stem):
     """The paper figure: a 3 x 3 grid of IPF-Z maps, clean / noisy / the six MTEX filters /
     the model, each titled with its mean error, plus the IPF colour key. Needs all six MTEX
@@ -455,18 +450,21 @@ def main():
     c.add_argument("runs", nargs="+", help="run folders (holding history.json) or history.json files")
     c.add_argument("--out", default=None, help="output PNG; default <run>/training_curves.png for "
                                                "one run, ./training_comparison.png for several")
+    z = sub.add_parser("zoom", help="zoomed loss and gate panels of one run")
+    z.add_argument("run", help="run folder (holding history.json) or a history.json file")
+    z.add_argument("--epochs", type=int, default=None, help="show epochs 1-N only")
+    z.add_argument("--out", default=None, help="output PNG; default MODEL_PIPELINE/figures/<run>/"
+                                               "training_zoom[_epochN].png")
     t = sub.add_parser("test", help="model vs MTEX on the test grid (4 figures)")
     t.add_argument("--seed", default="seed1",
                    help="model results folder, datasets/results_test_set_model/<seed>")
     t.add_argument("--sets", nargs="+", default=None, help="only these test sets (default: all 28)")
     t.add_argument("--out", default=None, help="output folder; default MODEL_PIPELINE/figures/<seed>")
-    m = sub.add_parser("maps", help="one test map cleaned by every method (3 figures)")
+    m = sub.add_parser("maps", help="one test map cleaned by every method (3 x 3 grid)")
     m.add_argument("--seed", default="seed1",
                    help="model results folder, datasets/results_test_set_model/<seed>")
     m.add_argument("--set", default="scatter5_mis3", help="test set, e.g. scatter15_mis9")
     m.add_argument("--map", type=int, default=1, help="map number (MTEX has maps 1-10)")
-    m.add_argument("--crop", nargs=4, type=int, default=None, metavar=("Y", "X", "H", "W"),
-                   help="zoom the IPF and error figures into a region")
     m.add_argument("--out", default=None,
                    help="output folder; default MODEL_PIPELINE/figures/<seed>/maps")
     args = p.parse_args()
@@ -476,6 +474,14 @@ def main():
         out = Path(args.out) if args.out else (
             folders[0] / "training_curves.png" if len(runs) == 1 else Path("training_comparison.png"))
         draw_curves(runs, out)
+        print(f"wrote {out}")
+    elif args.figure == "zoom":
+        runs, _ = _load_runs([args.run])
+        name, history = next(iter(runs.items()))
+        tag = f"_epoch{args.epochs}" if args.epochs else ""
+        out = Path(args.out) if args.out else FIGURES / name / f"training_zoom{tag}.png"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        draw_zoom(name, history, out, args.epochs)
         print(f"wrote {out}")
     elif args.figure == "test":
         scores, models = score_test_grid(args.seed, args.sets)
@@ -488,10 +494,8 @@ def main():
         out.mkdir(parents=True, exist_ok=True)
         stem = out / f"{args.set}_map{args.map:03d}"
         title = f"Test map {args.map}, {_set_label(args.set)}"
-        crop = tuple(args.crop) if args.crop else None
-        written = draw_maps(q_clean, panels, title, f"{stem}_crop" if crop else stem, crop)
-        written.append(draw_filter_grid(q_clean, panels, title, stem))
-        for path in filter(None, written):
+        path = draw_filter_grid(q_clean, panels, title, stem)
+        if path:
             print(f"wrote {path}")
 
 
