@@ -19,7 +19,9 @@
 # CONFIG is the training config (MODEL_PIPELINE/configs/train/<CONFIG>.yaml). Its
 # model is best.pth in the config's checkpoints_dir, e.g. MODEL_PIPELINE/checkpoints/seed1,
 # and the denoised maps go to a results folder with the same name:
-#     datasets/results_test_set_model/seed1/<set>/<stem>__<CONFIG>.txt
+#     datasets/results_test_set_model/seed1/<set>/<stem>__<NAME>.txt
+# NAME is the model's name in those file names and in the score tables
+# (default: the config name), e.g. NAME=unet.
 # SETS runs fewer sets, e.g. SETS="scatter5 scatter5_mis3".
 
 set -euo pipefail
@@ -33,7 +35,8 @@ CFG_DIR="$EXP/MODEL_PIPELINE/configs/train"
 if [[ -f "$CONFIG" ]]; then CONFIG="$(realpath "$CONFIG")"
 elif [[ -f "$CFG_DIR/$CONFIG.yaml" ]]; then CONFIG="$CFG_DIR/$CONFIG.yaml"
 else echo "ERROR: no config '$CONFIG' (also looked in $CFG_DIR)" >&2; exit 1; fi
-RUN="$(basename "$CONFIG" .yaml)"             # the model's name in the score tables
+RUN="$(basename "$CONFIG" .yaml)"
+NAME="${NAME:-$RUN}"                          # the model's name in the score tables
 # the config's checkpoints_dir (relative to $EXP unless absolute)
 CKPT_DIR="$("$PYTHON" -c 'import sys, yaml, pathlib
 d = pathlib.Path(yaml.safe_load(open(sys.argv[1]))["train"].get("checkpoints_dir", "MODEL_PIPELINE/checkpoints"))
@@ -44,14 +47,14 @@ OUT_ROOT="$EXP/datasets/results_test_set_model/$(basename "$CKPT_DIR")"
 nvidia-smi || { echo "ERROR: no GPU in this allocation" >&2; exit 1; }
 SETS="${SETS:-$(cat "$EXP/SHARED/configs/test_grid.txt")}"
 
-echo "Job started: $(date) on $(hostname)   run $RUN"
+echo "Job started: $(date) on $(hostname)   run $RUN   name $NAME"
 echo "model   : $CKPT"
 echo "results : $OUT_ROOT/<set>/"
 cd "$EXP/MODEL_PIPELINE/src"
 
 for SET in $SETS; do
     echo; echo "===== $SET ====="
-    "$PYTHON" inference.py --checkpoint "$CKPT" --method-name "$RUN" --out "$OUT_ROOT/$SET" \
+    "$PYTHON" inference.py --checkpoint "$CKPT" --method-name "$NAME" --out "$OUT_ROOT/$SET" \
         --clean-dir "$EXP/datasets/clean_euler_zip_unzip/clean_euler" \
         --noisy-dir "$EXP/datasets/noise_scatter_misindexing/noise_$SET"
 done
