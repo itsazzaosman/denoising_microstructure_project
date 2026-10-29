@@ -1,15 +1,5 @@
 # MODEL_PIPELINE: methods notes for the paper
 
-Working notes on the learned denoiser in `MODEL_PIPELINE/`: the data, the noise
-model, the network, the loss, training, validation and evaluation, with the
-file that implements each step and the decisions behind them. They describe the
-**current setup** (training configs `blind_both_seed{1,2,3}`, 2026-10-26). The
-earlier model (`blind_learned`) and its results are summarised in
-[Section 13](#13-earlier-model-blind_learned-and-its-results).
-
-Equations use `$…$` and `$$…$$`; open the Markdown preview in VS Code
-(Ctrl+Shift+V) to see them rendered.
-
 **Contents**
 
 1. [Data](#1-data)
@@ -77,12 +67,7 @@ Script: `MODEL_PIPELINE/src/prepare_cache.py`.
 | Validation | `datasets/cache/split_val_clean.npy` | $(500, 16384, 3)$ | `split_val_clean_ids.npy` |
 | Testing | `datasets/cache/split_test_clean.npy` | $(500, 16384, 3)$ | `split_test_clean_ids.npy` |
 
-Verified on 2026-10-25: the shapes above, the ID files identical to the split
-lists, and 5 maps per split identical to their `.txt` files.
 
-Run once, or again whenever the clean data or the split change:
-`python MAPS_DENOISING_Orientation_Noise/MODEL_PIPELINE/src/prepare_cache.py`.
-It refuses to replace an existing cache unless `--overwrite` is given.
 
 ---
 
@@ -91,7 +76,7 @@ It refuses to replace an existing cache unless `--overwrite` is given.
 ### 2.1 Euler angles to quaternions
 
 Each orientation is converted to a unit quaternion $q = (q_w, q_x, q_y, q_z)$
-when a map is loaded (in memory; the cache keeps the Euler angles). With
+when a map is loaded (on the fly during the traiing, validation and testing). With
 
 $$
 \sigma = \tfrac{1}{2}(\varphi_1 + \varphi_2), \qquad
