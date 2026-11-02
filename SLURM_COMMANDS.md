@@ -1,7 +1,5 @@
 # Slurm commands (copy and paste)
 
-Run from `/project/community/aiosman`. Most commands use `$JID`, the job ID.
-Set it once in your terminal, then paste the commands as they are:
 
 ```bash
 JID=162909          # the job ID that sbatch printed (or see squeue below)
