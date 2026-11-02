@@ -1,4 +1,4 @@
-.PHONY: train-cpu train-gpu watch
+.PHONY: train-gpu watch
 
 
 train-gpu:

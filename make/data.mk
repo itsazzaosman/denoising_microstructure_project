@@ -2,13 +2,15 @@
 .PHONY: noise preview cache check-orientation
 
 noise:
+	@test -n "$(NOISE)" || { echo "set NOISE=<test set>, e.g. make noise NOISE=scatter5_mis3"; exit 1; }
 	python $(SHARED_DIR)/src/add_ebsd_noise.py --config $(SHARED_DIR)/configs/noise/$(NOISE).yaml \
 	  $(CLEAN_DIR) $(NOISY_DIR)
 preview:
+	@test -n "$(MAP)" && test -n "$(SCATTER)" && test -n "$(MISINDEX)" || { echo "set MAP=, SCATTER= and MISINDEX=, e.g. make preview MAP=7 SCATTER=5 MISINDEX=3"; exit 1; }
 	python $(SHARED_DIR)/src/preview_noise.py --map $(MAP) --scatter $(SCATTER) --misindex $(MISINDEX)
 
 cache:
-	$(EBSD_PY) $(MODEL_DIR)/src/prepare_cache.py --n-train 12000 --jobs 16
+	$(EBSD_PY) $(MODEL_DIR)/src/prepare_cache.py --jobs 16
 
 check-orientation:
 	$(EBSD_PY) $(MODEL_DIR)/src/orientation_torch.py --self-test

@@ -25,4 +25,5 @@ plot-test:
 	cd $(MODEL_DIR)/src && $(EBSD_PY) plotting.py test --seed $(SEED) $(if $(SETS),--sets $(SETS))
 
 plot-maps:
+	@test -n "$(MAP)" && test -n "$(NOISE)" || { echo "set MAP= and NOISE=, e.g. make plot-maps MAP=2 NOISE=scatter5_mis3"; exit 1; }
 	cd $(MODEL_DIR)/src && $(EBSD_PY) plotting.py maps --seed $(SEED) --set $(NOISE) --map $(MAP)
